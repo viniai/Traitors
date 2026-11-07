@@ -9,9 +9,13 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# opzionale: senza chiave parte la modalità demo (risposte casuali)
+# Configura uno dei provider; senza chiave parte la modalità demo (risposte casuali)
 export ANTHROPIC_API_KEY=sk-ant-...
-export TRAITORS_MODEL=claude-haiku-5-5   # opzionale, è già il default
+# In alternativa:
+# export OPENROUTER_API_KEY=sk-or-...
+# export TRAITORS_MODEL=openai/gpt-4o-mini
+# Se entrambe le chiavi sono configurate, puoi selezionare il provider:
+# export TRAITORS_PROVIDER=openrouter  # oppure anthropic
 
 python main.py        # oppure: uvicorn main:app --host 0.0.0.0 --port 8000
 ```
@@ -23,9 +27,9 @@ Apri http://localhost:8000. Da telefono, usa l'IP del computer nella stessa rete
 | Parte | File | Ruolo |
 |---|---|---|
 | Game master | `backend/engine.py` | Codice puro: ruoli segreti, missioni, voti, spareggi, notti, reclutamento, condizioni di vittoria. Gli LLM non possono barare né sbagliare le regole. |
-| Generazione personaggi | `backend/characters.py` | Dato un breve spunto scrive nome, archetipo e personalità (Claude, o bozza semplice senza chiave). |
+| Generazione personaggi | `backend/characters.py` | Dato un breve spunto scrive nome, archetipo e personalità (LLM configurato, o bozza semplice senza chiave). |
 | Personalità | `backend/personalities.py` | Regole comuni + 10 caratteri (Paranoica, Diplomatico, Logica, Teatrale, Silenziosa, Leale, Seduttrice, Burbero, Istintiva, Comico). |
-| LLM | `backend/llm.py` | `ClaudeLLM` (API Anthropic) e `MockLLM` (demo gratuita). |
+| LLM | `backend/llm.py` | `ClaudeLLM` (API Anthropic), `OpenRouterLLM` (API OpenRouter) e `MockLLM` (demo gratuita). |
 | API | `backend/main.py` | Crea partite, streaming eventi via SSE, replay delle partite salvate, serve la PWA. |
 | Frontend | `frontend/` | PWA in JS puro, nessuna build. Service worker per la shell offline. |
 
@@ -48,7 +52,7 @@ Apri http://localhost:8000. Da telefono, usa l'IP del computer nella stessa rete
 
 | Metodo | Percorso | Descrizione |
 |---|---|---|
-| GET | `/api/health` | Dice se la chiave API è configurata |
+| GET | `/api/health` | Dice se la chiave API del provider configurato è disponibile |
 | GET | `/api/characters` | Personaggi predefiniti |
 | POST | `/api/characters/generate` | `{brief, name?, taken?}` → `{name, archetype, prompt, mock}` (generazione assistita) |
 | POST | `/api/games` | `{mock, traitors, rounds, delay, model, seed, characters?}` → `{id}` (`characters`: 6-14 elementi `{name, archetype, prompt}`) |
@@ -62,9 +66,10 @@ Le partite finite vengono salvate in `backend/games/<id>.json` e si possono rive
 ## Personalizzare
 
 - **Personaggi dall'app**: in «Nuova partita» tocca *Personaggi e personalità*. Puoi modificare nome, archetipo e personalità, aggiungere o rimuovere giocatori (da 6 a 14) e ripristinare quelli predefiniti. Il cast viene ricordato dal browser. Il numero massimo di Traditori si adatta ai giocatori (sempre meno dei Fedeli).
-- **Scrivi con AI**: in ogni personaggio descrivi il carattere in poche parole (es. «un ex poliziotto che sospetta di tutti») e l'assistente scrive archetipo e personalità; se il nome è vuoto lo sceglie lui. Con la chiave API usa Claude; senza, produce una bozza semplice da rivedere a mano.
+- **Provider LLM**: usa `ANTHROPIC_API_KEY` per Anthropic oppure `OPENROUTER_API_KEY` per OpenRouter. Se è impostata solo la chiave OpenRouter, viene selezionato automaticamente; se sono presenti entrambe, Anthropic resta il provider predefinito. Imposta `TRAITORS_PROVIDER=openrouter` o `anthropic` per scegliere esplicitamente. `TRAITORS_MODEL` sovrascrive il modello predefinito (per OpenRouter, ad esempio, `openai/gpt-4o-mini`).
+- **Scrivi con AI**: in ogni personaggio descrivi il carattere in poche parole (es. «un ex poliziotto che sospetta di tutti») e l'assistente scrive archetipo e personalità; se il nome è vuoto lo sceglie lui. Con una chiave API usa il provider configurato; senza, produce una bozza semplice da rivedere a mano.
 - **Personaggi predefiniti**: sono la lista `CHARACTERS` in `personalities.py` (riavvia il server dopo averla cambiata).
-- **Modelli diversi a confronto**: aggiungi un campo `model` a ogni personaggio e passalo a `ClaudeLLM` per giocatore (oggi il modello è unico per partita).
+- **Modelli diversi a confronto**: aggiungi un campo `model` a ogni personaggio e passalo al client del provider per giocatore (oggi il modello è unico per partita).
 - **Più realismo**: scudo di immunità, pugnale, missioni con esito legato ai Traditori, finale con voto "chiudere o continuare". Il punto giusto dove inserirli è `Game.run()`.
 - **Costi**: una partita da 10 giocatori usa circa 150-300 chiamate. Con Haiku resta economica; i turni di discussione sono la parte più costosa.
 

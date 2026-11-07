@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import uuid
 from pathlib import Path
@@ -16,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from characters import generate_character
 from engine import Game
-from llm import DEFAULT_MODEL, ClaudeLLM, LLMError, MockLLM
+from llm import DEFAULT_MODEL, LLMError, MockLLM, create_llm, has_llm_key
 from personalities import CHARACTERS
 
 BASE = Path(__file__).parent
@@ -27,10 +26,6 @@ MAX_IN_MEMORY = 20
 app = FastAPI(title="Traitors · simulazione con LLM")
 GAMES: dict[str, Game] = {}
 TASKS: dict[str, asyncio.Task] = {}
-
-
-def has_key() -> bool:
-    return bool(os.getenv("ANTHROPIC_API_KEY"))
 
 
 class CharacterIn(BaseModel):
@@ -79,7 +74,7 @@ def clean_cast(chars: list[CharacterIn], n_traitors: int) -> list[dict]:
 
 @app.get("/api/health")
 def health():
-    return {"llm": has_key(), "model": DEFAULT_MODEL}
+    return {"llm": has_llm_key(), "model": DEFAULT_MODEL}
 
 
 @app.get("/api/characters")
@@ -91,9 +86,9 @@ def default_characters():
 async def characters_generate(body: GenerateIn):
     """Scrive nome, archetipo e personalità di un personaggio a partire da una breve descrizione."""
     llm = None
-    if has_key():
+    if has_llm_key():
         try:
-            llm = ClaudeLLM(model=body.model or None)
+            llm = create_llm(model=body.model or None)
         except Exception as exc:
             raise HTTPException(500, f"Impossibile avviare il client LLM: {exc}")
     try:
@@ -105,11 +100,14 @@ async def characters_generate(body: GenerateIn):
 @app.post("/api/games")
 async def create_game(body: NewGame):
     chars = clean_cast(body.characters, body.traitors) if body.characters else None
-    mock = body.mock if body.mock is not None else not has_key()
-    if not mock and not has_key():
-        raise HTTPException(400, "ANTHROPIC_API_KEY non impostata: usa la modalità demo o configura la chiave.")
+    mock = body.mock if body.mock is not None else not has_llm_key()
+    if not mock and not has_llm_key():
+        raise HTTPException(
+            400,
+            "Chiave API LLM non impostata: configura ANTHROPIC_API_KEY oppure OPENROUTER_API_KEY.",
+        )
     try:
-        llm = MockLLM(seed=body.seed) if mock else ClaudeLLM(model=body.model or None)
+        llm = MockLLM(seed=body.seed) if mock else create_llm(model=body.model or None)
     except Exception as exc:  # pacchetto mancante, ecc.
         raise HTTPException(500, f"Impossibile avviare il client LLM: {exc}")
 

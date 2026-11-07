@@ -312,12 +312,12 @@
     const mode = $('#opt-mode').value;
     $('#model-field').style.display = mode === 'llm' ? '' : 'none';
     $('#mode-hint').textContent = mode === 'llm' && !S.health.llm
-      ? 'ANTHROPIC_API_KEY non è impostata sul server: la partita non partirà.'
+      ? 'Nessuna chiave LLM configurata sul server: imposta ANTHROPIC_API_KEY oppure OPENROUTER_API_KEY.'
       : '';
-    $('#opt-model').placeholder = S.health.model || 'claude-haiku-5-5';
+    $('#opt-model').placeholder = S.health.model || 'Modello predefinito del provider';
     const note = $('#cast-note');
     note.hidden = mode !== 'mock';
-    note.textContent = 'In modalità demo le risposte sono casuali: le personalità influenzano la partita solo con Claude.';
+    note.textContent = 'In modalità demo le risposte sono casuali: le personalità influenzano la partita solo con un LLM.';
   }
 
   function openSheet() { $('#sheet').hidden = false; loadHistory(); }

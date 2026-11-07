@@ -1,4 +1,4 @@
-"""Livello LLM: client Claude e modalità demo (MockLLM) senza chiave API."""
+"""Livello LLM: client Anthropic, OpenRouter e modalità demo (MockLLM)."""
 from __future__ import annotations
 
 import asyncio
@@ -7,11 +7,29 @@ import os
 import random
 from typing import Optional
 
-DEFAULT_MODEL = os.getenv("TRAITORS_MODEL", "claude-haiku-5-5")
-
-
 class LLMError(Exception):
     pass
+
+
+def configured_provider() -> str:
+    provider = os.getenv("TRAITORS_PROVIDER", "").strip().lower()
+    if provider:
+        if provider not in {"anthropic", "openrouter"}:
+            raise LLMError("TRAITORS_PROVIDER deve essere 'anthropic' oppure 'openrouter'.")
+        return provider
+    if os.getenv("OPENROUTER_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
+        return "openrouter"
+    return "anthropic"
+
+
+def has_llm_key() -> bool:
+    key_name = "OPENROUTER_API_KEY" if configured_provider() == "openrouter" else "ANTHROPIC_API_KEY"
+    return bool(os.getenv(key_name))
+
+
+DEFAULT_MODEL = os.getenv("TRAITORS_MODEL") or (
+    "openai/gpt-4o-mini" if configured_provider() == "openrouter" else "claude-haiku-5-5"
+)
 
 
 class BaseLLM:
@@ -57,6 +75,49 @@ class ClaudeLLM(BaseLLM):
                     last = exc
                     await asyncio.sleep(1.5 * (attempt + 1))
             raise LLMError(f"{type(last).__name__}: {last}")
+
+
+class OpenRouterLLM(BaseLLM):
+    """Chiama OpenRouter tramite la sua API compatibile con OpenAI."""
+
+    def __init__(self, model: Optional[str] = None, concurrency: int = 6):
+        import openai
+
+        self.client = openai.AsyncOpenAI(
+            api_key=os.environ["OPENROUTER_API_KEY"],
+            base_url="https://openrouter.ai/api/v1",
+        )
+        self.model = model or DEFAULT_MODEL
+        self.name = self.model
+        self._sem = asyncio.Semaphore(concurrency)
+
+    async def complete(self, system, user, *, kind, options=None, max_tokens=400, player=""):
+        async with self._sem:
+            last: Exception | None = None
+            for attempt in range(3):
+                try:
+                    resp = await self.client.chat.completions.create(
+                        model=self.model,
+                        max_tokens=max_tokens,
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                    )
+                    content = resp.choices[0].message.content
+                    if content is None:
+                        raise LLMError("OpenRouter ha restituito una risposta vuota.")
+                    return content
+                except Exception as exc:  # rete, rate limit, ecc.
+                    last = exc
+                    await asyncio.sleep(1.5 * (attempt + 1))
+            raise LLMError(f"{type(last).__name__}: {last}")
+
+
+def create_llm(model: Optional[str] = None) -> BaseLLM:
+    if configured_provider() == "openrouter":
+        return OpenRouterLLM(model=model)
+    return ClaudeLLM(model=model)
 
 
 _SPEAK = [
