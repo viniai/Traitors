@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Traitors · Simulazione</title>
+  <meta name="theme-color" content="#0e0b10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">The Traitors</span>
+      <span class="sub">simulazione LLM</span>
+    </div>
+    <div class="stats">
+      <div class="pill" id="phase">In attesa</div>
+      <div class="pot" id="pot">0 €</div>
+    </div>
+  </header>
+
+  <nav class="players" id="players" aria-label="Giocatori"></nav>
+
+  <main class="feed" id="feed" aria-live="polite">
+    <div class="empty" id="empty">
+      <p class="empty-title">Il castello è silenzioso.</p>
+      <p>Avvia una nuova partita per far entrare dieci concorrenti.</p>
+    </div>
+  </main>
+
+  <footer class="bar">
+    <button id="btn-new" class="btn primary">Nuova partita</button>
+    <button id="btn-god" class="btn" aria-pressed="false">Vista dio</button>
+    <button id="btn-skip" class="btn" hidden>Salta</button>
+  </footer>
+
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet-card">
+      <h2>Nuova partita</h2>
+
+      <label class="field">
+        <span>Modalità</span>
+        <select id="opt-mode">
+          <option value="mock">Demo (senza API, risposte casuali)</option>
+          <option value="llm">Claude (10 agenti LLM)</option>
+        </select>
+        <small id="mode-hint"></small>
+      </label>
+
+      <div class="row">
+        <label class="field">
+          <span>Traditori</span>
+          <select id="opt-traitors">
+            <option>2</option><option selected>3</option><option>4</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Giri di discussione</span>
+          <select id="opt-rounds">
+            <option>1</option><option selected>2</option><option>3</option>
+          </select>
+        </label>
+      </div>
+
+      <button type="button" class="btn cast-btn" id="btn-cast">
+        <span>Personaggi e personalità</span>
+        <span class="muted" id="cast-label">10 giocatori</span>
+      </button>
+
+      <label class="field" id="model-field">
+        <span>Modello (opzionale)</span>
+        <input id="opt-model" type="text" placeholder="claude-haiku-5-5" autocomplete="off" autocapitalize="off">
+      </label>
+
+      <p class="hint" id="start-hint"></p>
+
+      <div class="row actions">
+        <button id="btn-start" class="btn primary">Avvia</button>
+        <button id="btn-close" class="btn">Chiudi</button>
+      </div>
+
+      <h3>Partite precedenti</h3>
+      <ul class="history" id="history"><li class="muted">Nessuna partita salvata.</li></ul>
+    </div>
+  </div>
+
+  <div class="sheet" id="cast-sheet" hidden>
+    <div class="sheet-card tall">
+      <div class="cast-head">
+        <h2>Personaggi</h2>
+        <span class="muted" id="cast-count"></span>
+        <button type="button" id="cast-done" class="btn primary slim">Fatto</button>
+      </div>
+      <p class="hint" id="cast-note" hidden></p>
+      <p class="muted small">
+        Tocca un personaggio per modificarlo. Con «Scrivi con AI» descrivi il carattere in poche parole
+        e l'assistente scrive la personalità al posto tuo.
+      </p>
+      <div class="cast-list" id="cast-list"></div>
+      <div class="row actions">
+        <button type="button" id="cast-add" class="btn">+ Aggiungi</button>
+        <button type="button" id="cast-reset" class="btn">Ripristina predefiniti</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
