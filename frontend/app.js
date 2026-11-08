@@ -22,6 +22,13 @@
     health: { llm: false, model: '' },
     cast: [],
     defaults: [],
+    set: 'default',
+    defaultsBy: { default: [], historical: [] },
+    mine: new Set(),
+    gameId: null,
+    live: false,
+    turns: new Map(),
+    selected: null,
   };
 
   const feed = $('#feed');
@@ -54,6 +61,8 @@
       a.dataset.role = p.role;
       a.dataset.revealed = String(p.revealed);
       b.append(a, el('span', 'nm', p.name));
+      const badges = (p.human ? '👤' : '') + (p.immune ? '🛡' : '') + (p.shield && (S.god || S.mine.has(p.name)) ? '🔰' : '');
+      if (badges) b.append(el('span', 'tag', badges));
       b.addEventListener('click', () => {
         S.focus = S.focus === p.name ? null : p.name;
         renderPlayers();
@@ -80,7 +89,10 @@
     const follow = nearBottom();
     if (ev.actor) node.dataset.actor = ev.actor;
     if (ev.target) node.dataset.target = ev.target;
-    if (ev.secret) node.classList.add('secret');
+    if (ev.secret) {
+      node.classList.add('secret');
+      if (ev.to && ev.to.some((n) => S.mine.has(n))) node.classList.add('mine');
+    }
     $('#empty')?.remove();
     feed.append(node);
     if (S.focus && node.dataset.actor !== S.focus && node.dataset.target !== S.focus && !node.classList.contains('divider')) {
@@ -97,8 +109,13 @@
     feed.replaceChildren();
     S.players.clear();
     S.focus = null;
+    S.mine = new Set();
+    S.turns.clear();
+    renderTurn();
+    document.body.classList.remove('traitor-view');
     renderPlayers();
     $('#pot').textContent = fmt(0);
+    $('#bounty').textContent = '🗡 ' + fmt(0);
     $('#phase').textContent = 'In attesa';
     const e = el('div', 'empty'); e.id = 'empty';
     e.append(el('p', 'empty-title', 'Il castello si sta riempiendo…'));
@@ -131,6 +148,8 @@
     p.alive = false;
     p.revealed = true;
     p.role = role || p.role;
+    for (const q of S.players.values()) q.immune = false;
+    updateTraitorView();
     renderPlayers();
   }
 
@@ -139,12 +158,34 @@
     switch (ev.type) {
       case 'setup':
         S.players.clear();
-        for (const p of ev.players) S.players.set(p.name, { ...p, alive: true, revealed: false });
+        S.mine = new Set(ev.players.filter((p) => p.human).map((p) => p.name));
+        for (const p of ev.players) {
+          S.players.set(p.name, { ...p, alive: true, revealed: S.mine.has(p.name), immune: false, shield: false });
+        }
+        updateTraitorView();
         renderPlayers();
         break;
 
       case 'pot':
         $('#pot').textContent = fmt(ev.pot);
+        if (ev.bounty != null) $('#bounty').textContent = '🗡 ' + fmt(ev.bounty);
+        break;
+
+      case 'sabotage': {
+        const n = el('div', 'note sabotage', `${ev.sabotage ? '🗡' : '🤝'} ${ev.text}`);
+        const t = thoughtNode(ev);
+        if (t) n.append(t);
+        add(n, ev);
+        break;
+      }
+
+      case 'human_turn':
+        if (S.live) { S.turns.set(ev.turn, ev); renderTurn(); }
+        break;
+
+      case 'human_done':
+        S.turns.delete(ev.turn);
+        renderTurn();
         break;
 
       case 'phase': {
@@ -153,9 +194,16 @@
         break;
       }
 
-      case 'gm':
+      case 'gm': {
         add(el('div', 'note', ev.text), ev);
+        const h = ev.holder && S.players.get(ev.holder);
+        if (h && ev.perk === 'immunity') h.immune = true;
+        if (h && ev.perk === 'shield') h.shield = true;
+        const used = ev.shield_used && S.players.get(ev.shield_used);
+        if (used) used.shield = false;
+        if (h || used) renderPlayers();
         break;
+      }
 
       case 'speech':
         add(bubble(ev, false), ev);
@@ -199,7 +247,7 @@
         add(n, { ...ev, secret: true });
         if (ev.accepted) {
           const p = S.players.get(ev.target);
-          if (p) { p.role = 'traitor'; renderPlayers(); }
+          if (p) { p.role = 'traitor'; updateTraitorView(); renderPlayers(); }
         }
         break;
       }
@@ -231,6 +279,105 @@
     }
   }
 
+  function updateTraitorView() {
+    const on = [...S.mine].some((n) => S.players.get(n)?.role === 'traitor');
+    document.body.classList.toggle('traitor-view', on);
+  }
+
+  // ------------------------------------------------------- turni del giocatore umano
+  async function sendTurn(ev, payload) {
+    try {
+      await api(`/games/${S.gameId}/turn`, { method: 'POST', body: JSON.stringify({ turn: ev.turn, ...payload }) });
+    } catch (e) {
+      alert(e.message);
+    }
+    S.turns.delete(ev.turn);
+    renderTurn();
+  }
+
+  function renderTurn() {
+    const box = $('#turn');
+    const ev = S.turns.values().next().value;
+    if (!ev) { box.hidden = true; box.replaceChildren(); S.selected = null; return; }
+    box.hidden = false;
+    box.replaceChildren();
+    const info = ev.info || {};
+    const who = ev.actor;
+    const btn = (label, fn, cls = '') => {
+      const b = el('button', 'btn ' + cls, label);
+      b.type = 'button';
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const area = (ph) => { const t = el('textarea'); t.maxLength = 500; t.placeholder = ph; return t; };
+    const opts = (names, onPick) => {
+      const row = el('div', 'opts');
+      for (const n of names) {
+        const b = btn(n, () => {
+          S.selected = n;
+          for (const x of row.children) x.classList.toggle('sel', x.textContent === n);
+          if (onPick) onPick(n);
+        });
+        if (S.selected === n) b.classList.add('sel');
+        row.append(b);
+      }
+      return row;
+    };
+    S.selected = null;
+
+    switch (ev.kind) {
+      case 'speak': {
+        box.append(el('h3', '', `Tocca a ${who}: parla`));
+        box.append(el('p', 'sub', 'Accusa, difenditi o proponi chi votare.'));
+        const t = area('Cosa dici agli altri?');
+        box.append(t, btn('Parla', () => sendTurn(ev, { say: t.value.trim() || '...' }), 'primary'));
+        break;
+      }
+      case 'vote': {
+        box.append(el('h3', '', `Tocca a ${who}: vota`));
+        box.append(el('p', 'sub', 'Chi vuoi eliminare?'));
+        box.append(opts(ev.options, (n) => sendTurn(ev, { vote: n })));
+        break;
+      }
+      case 'murder': {
+        box.append(el('h3', '', `Tocca a ${who}: scegli la vittima`));
+        if (info.proposals) box.append(el('p', 'sub', 'Proposte finora: ' + info.proposals.replace(/\n/g, ' ')));
+        box.append(opts(ev.options));
+        const t = area('Messaggio ai complici');
+        let rec = null;
+        if (info.can_recruit) {
+          const row = el('label', 'chk-row');
+          rec = el('input'); rec.type = 'checkbox';
+          row.append(rec, el('span', '', 'Recluta invece di uccidere'));
+          box.append(row);
+        }
+        box.append(t, btn('Conferma', () => {
+          if (!S.selected) { alert('Scegli un bersaglio.'); return; }
+          sendTurn(ev, { target: S.selected, say: t.value.trim() || `Propongo ${S.selected}.`, action: rec?.checked ? 'recruit' : 'murder' });
+        }, 'primary'));
+        break;
+      }
+      case 'recruit':
+        box.append(el('h3', '', `${who}: ti offrono di unirti ai Traditori`));
+        box.append(el('p', 'sub', 'Se rifiuti verrai assassinato.'));
+        box.append(el('div', 'opts'));
+        box.lastChild.append(btn('Accetta', () => sendTurn(ev, { accept: true }), 'primary'), btn('Rifiuta', () => sendTurn(ev, { accept: false })));
+        break;
+      case 'sabotage': {
+        box.append(el('h3', '', `${who}: sabotare «${info.title}»?`));
+        const perk = info.perk === 'shield' ? ' In palio uno scudo.' : info.perk === 'immunity' ? ' In palio l\'immunità.' : '';
+        box.append(el('p', 'sub', `Posta ${fmt(info.stake)}.${perk} Bottino attuale ${fmt(info.bounty)}. Sabotare rende soldi al bottino ma insospettisce i Fedeli.`));
+        const row = el('div', 'opts');
+        row.append(btn('Sabota', () => sendTurn(ev, { sabotage: true }), 'primary'), btn('Non sabotare', () => sendTurn(ev, { sabotage: false })));
+        box.append(row);
+        break;
+      }
+      default:
+        box.append(el('h3', '', `Tocca a ${who}`));
+    }
+    if (S.turns.size > 1) box.append(el('p', 'sub', `Altri turni in attesa: ${S.turns.size - 1}`));
+  }
+
   // --------------------------------------------------------- streaming / replay
   function stop() {
     if (S.es) { S.es.close(); S.es = null; }
@@ -242,6 +389,8 @@
   function connect(id) {
     stop();
     reset();
+    S.gameId = id;
+    S.live = true;
     const es = new EventSource(`/api/games/${id}/events`);
     S.es = es;
     es.onmessage = (m) => handle(JSON.parse(m.data));
@@ -265,6 +414,7 @@
   async function replay(id) {
     stop();
     reset();
+    S.live = false;
     try {
       const r = await fetch(`/api/games/${id}/transcript`);
       if (!r.ok) throw new Error('Partita non trovata');
@@ -334,7 +484,12 @@
         mock: $('#opt-mode').value === 'mock',
         traitors: Number($('#opt-traitors').value),
         rounds: Number($('#opt-rounds').value),
-        characters: S.cast.map((c) => ({ name: c.name.trim(), archetype: c.archetype.trim(), prompt: c.prompt.trim() })),
+        historical: S.set === 'historical',
+        human: S.cast.filter((c) => c.human).map((c) => c.name.trim()),
+        characters: S.cast.map((c) => ({
+          name: c.name.trim(), archetype: c.archetype.trim(), prompt: c.prompt.trim(),
+          historical: S.set === 'historical' ? (c.historical || '').trim() : '',
+        })),
       };
       const model = $('#opt-model').value.trim();
       if (!body.mock && model) body.model = model;
@@ -349,24 +504,27 @@
   }
 
   // ------------------------------------------------------------- personaggi
-  const CAST_KEY = 'cast.v1';
+  const castKey = () => (S.set === 'historical' ? 'cast.hist.v1' : 'cast.v1');
   const MIN_CAST = 6;
   const MAX_CAST = 14;
   const BAD_NAME = /[,;:"{}\n\r\t]/;
 
   function loadCast() {
     try {
-      const raw = JSON.parse(localStorage.getItem(CAST_KEY) || 'null');
+      const raw = JSON.parse(localStorage.getItem(castKey()) || 'null');
       if (Array.isArray(raw) && raw.length >= MIN_CAST) {
-        return raw.map((c) => ({ name: String(c.name || ''), archetype: String(c.archetype || ''), prompt: String(c.prompt || '') }));
+        return raw.map((c) => ({
+          name: String(c.name || ''), archetype: String(c.archetype || ''), prompt: String(c.prompt || ''),
+          historical: String(c.historical || ''), human: !!c.human,
+        }));
       }
     } catch (_) { /* nessun cast salvato */ }
-    return S.defaults.map((c) => ({ ...c }));
+    return S.defaults.map((c) => ({ ...c, human: false }));
   }
 
   function saveCast() {
     try {
-      localStorage.setItem(CAST_KEY, JSON.stringify(S.cast.map(({ name, archetype, prompt }) => ({ name, archetype, prompt }))));
+      localStorage.setItem(castKey(), JSON.stringify(S.cast.map(({ name, archetype, prompt, historical, human }) => ({ name, archetype, prompt, historical, human }))));
     } catch (_) { /* ignore */ }
   }
 
@@ -381,6 +539,7 @@
       seen.add(name.toLowerCase());
       if (!c.prompt.trim()) return `${name} non ha una personalità.`;
     }
+    if (S.cast.filter((c) => c.human).length >= S.cast.length) return 'Almeno un personaggio deve restare all\'IA.';
     return null;
   }
 
@@ -399,7 +558,8 @@
   }
 
   function updateCastLabel() {
-    $('#cast-label').textContent = `${S.cast.length} giocatori`;
+    const humans = S.cast.filter((c) => c.human).length;
+    $('#cast-label').textContent = `${S.cast.length} giocatori` + (humans ? ` · ${humans} controllati da te` : '');
     $('#cast-count').textContent = `${S.cast.length} / ${MAX_CAST}`;
   }
 
@@ -443,9 +603,11 @@
       refreshTraitors();
       updateCastLabel();
     });
-    sum.append(av, meta, rm);
+    const you = el('span', 'you', '👤 tu');
+    sum.append(av, meta, you, rm);
 
     const paint = () => {
+      you.style.display = c.human ? '' : 'none';
       const name = c.name.trim();
       av.textContent = (name[0] || '?').toUpperCase();
       av.style.setProperty('--h', hue(name || String(i)));
@@ -454,6 +616,12 @@
     };
 
     const nameIn = textInput(c.name, 20);
+    const histIn = textInput(c.historical || '', 160, 'es. Napoleone Bonaparte, imperatore dei Francesi (1769-1821)');
+    histIn.addEventListener('input', () => { c.historical = histIn.value; saveCast(); });
+    const humanRow = el('label', 'chk-row');
+    const humanIn = el('input'); humanIn.type = 'checkbox'; humanIn.checked = !!c.human;
+    humanRow.append(humanIn, el('span', '', 'Lo controllo io'));
+    humanIn.addEventListener('change', () => { c.human = humanIn.checked; paint(); saveCast(); updateCastLabel(); });
     const archIn = textInput(c.archetype, 60, 'es. il Complottista');
     const promptIn = el('textarea');
     promptIn.maxLength = 800;
@@ -488,11 +656,12 @@
         const taken = S.cast.filter((_, j) => j !== i).map((x) => x.name.trim()).filter(Boolean);
         const r = await api('/characters/generate', {
           method: 'POST',
-          body: JSON.stringify({ brief: text, name: c.name.trim() || null, taken }),
+          body: JSON.stringify({ brief: text, name: c.name.trim() || null, taken, historical: S.set === 'historical' }),
         });
         c.name = c.name.trim() || r.name;
         c.archetype = r.archetype;
         c.prompt = r.prompt;
+        if (r.historical) { c.historical = r.historical; histIn.value = r.historical; }
         nameIn.value = c.name;
         archIn.value = c.archetype;
         promptIn.value = c.prompt;
@@ -511,7 +680,9 @@
     });
 
     const body = el('div', 'char-body');
-    body.append(castField('Nome', nameIn), castField('Archetipo', archIn), castField('Personalità', promptIn), count, ai);
+    body.append(castField('Nome', nameIn));
+    if (S.set === 'historical') body.append(castField('Identità storica', histIn));
+    body.append(humanRow, castField('Archetipo', archIn), castField('Personalità', promptIn), count, ai);
     d.append(sum, body);
     paint();
     updCount();
@@ -528,7 +699,7 @@
 
   function addCharacter() {
     if (S.cast.length >= MAX_CAST) return;
-    S.cast.push({ name: '', archetype: '', prompt: '', _open: true });
+    S.cast.push({ name: '', archetype: '', prompt: '', historical: '', human: false, _open: true });
     renderCast();
     refreshTraitors();
     updateCastLabel();
@@ -539,9 +710,18 @@
 
   function resetCast() {
     if (!confirm('Ripristinare i personaggi predefiniti? Le tue modifiche andranno perse.')) return;
-    S.cast = S.defaults.map((c) => ({ ...c }));
+    S.cast = S.defaults.map((c) => ({ ...c, human: false }));
     saveCast();
     renderCast();
+    refreshTraitors();
+    updateCastLabel();
+  }
+
+  function switchSet(set) {
+    saveCast();
+    S.set = set;
+    S.defaults = S.defaultsBy[set];
+    S.cast = loadCast();
     refreshTraitors();
     updateCastLabel();
   }
@@ -569,7 +749,10 @@
     try {
       S.health = await api('/health');
     } catch (_) { /* server non raggiungibile */ }
-    try { S.defaults = await api('/characters'); } catch (_) { S.defaults = []; }
+    try { S.defaultsBy.default = await api('/characters'); } catch (_) { /* ignore */ }
+    try { S.defaultsBy.historical = await api('/characters?set=historical'); } catch (_) { /* ignore */ }
+    S.defaults = S.defaultsBy.default;
+    $('#opt-historical').addEventListener('change', (e) => switchSet(e.target.checked ? 'historical' : 'default'));
     S.cast = loadCast();
     refreshTraitors();
     updateCastLabel();
