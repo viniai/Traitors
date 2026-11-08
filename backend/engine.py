@@ -64,6 +64,10 @@ class Player:
     role: str = "faithful"
     alive: bool = True
     out_text: str = ""
+    historical: str = ""
+    human: bool = False
+    shield: bool = False
+    immune: bool = False
     thoughts: list[str] = field(default_factory=list)
 
 
@@ -80,6 +84,8 @@ class Game:
         save_dir: Optional[Path] = None,
         seed: Optional[int] = None,
         characters: Optional[list[dict]] = None,
+        historical: bool = False,
+        human: Optional[list[str]] = None,
     ):
         self.llm = llm
         self.id = game_id
@@ -90,6 +96,11 @@ class Game:
         self.save_dir = save_dir
         self.rng = random.Random(seed)
         self.characters = characters or CHARACTERS
+        self.historical = historical
+        self.human_names = set(human or [])
+        self.bounty = 0
+        self.turns: dict[int, asyncio.Future] = {}
+        self.turn_seq = 0
 
         self.players: list[Player] = []
         self.events: list[dict] = []
@@ -150,7 +161,10 @@ class Game:
                 "IL TUO RUOLO SEGRETO: sei un TRADITORE.\n"
                 + (f"I tuoi complici sono: {', '.join(mates)}.\n" if mates else "Sei l'unico Traditore rimasto.\n")
                 + "Di notte scegliete chi assassinare. Di giorno devi sembrare un Fedele: mentire, deviare i sospetti e "
-                "sacrificare un complice solo se serve davvero sono mosse legittime. Non rivelare mai il tuo ruolo."
+                "sacrificare un complice solo se serve davvero sono mosse legittime. Non rivelare mai il tuo ruolo.\n"
+                "Ad ogni missione scegli in segreto se SABOTARE o no: sabotare fa perdere soldi alla squadra e li porta nel "
+                "bottino dei Traditori (e può far saltare scudi e immunità in palio), ma un incasso troppo basso insospettisce i Fedeli. "
+                "Non sabotare ti mantiene al riparo dai sospetti. Valuta ogni volta il rischio."
             )
         else:
             role_txt = (
@@ -160,8 +174,30 @@ class Game:
             )
         return (
             f"{BASE_RULES}\n"
-            f"IL TUO PERSONAGGIO: ti chiami {p.name}, sei {p.archetype}.\n{p.prompt}\n\n{role_txt}"
+            f"IL TUO PERSONAGGIO: ti chiami {p.name}, sei {p.archetype}.\n{p.prompt}\n\n{self.historical_txt(p)}{role_txt}"
         )
+
+    def historical_txt(self, p: Player) -> str:
+        if not (self.historical and p.historical):
+            return ""
+        others = [x for x in self.players if x is not p and x.historical]
+        txt = (
+            "MODALITÀ STORICA\n"
+            f"Sei davvero {p.historical}. Mantieni piena coscienza storica di te stesso: biografia, imprese, convinzioni, "
+            "lessico e mentalità del tuo tempo, come furono davvero. Sai di trovarti in questo castello e conosci le regole "
+            "del gioco, ma non sai nulla di ciò che accadde dopo la tua morte né dei ruoli segreti.\n"
+        )
+        if others:
+            txt += "Nel castello ci sono altri personaggi storici:\n" + "\n".join(
+                f"- {x.name}: {x.historical}" for x in others
+            ) + (
+                "\nRicorda ciò che pensavi (o avresti pensato) di loro secondo i rapporti storici reali: alleati, amanti, nemici, "
+                "rivali, ammirazione, rancori. Lascia che questi sentimenti guidino fiducia e sospetti. Se non vissero nella tua "
+                "epoca, trattali con la curiosità di chi incontra un personaggio di cui ha sentito parlare, senza inventare "
+                "conoscenze che non potevi avere.\n"
+            )
+        return txt + "\n"
+
 
     def history(self) -> str:
         out: list[str] = []
@@ -196,8 +232,14 @@ class Game:
         if p.role == "traitor":
             others = [x.name for x in self.alive_traitors() if x is not p]
             lines.append("Complici Traditori ancora in gioco: " + (", ".join(others) if others else "nessuno") + ".")
+            lines.append(f"Bottino segreto dei Traditori: {self.bounty} €.")
             if self.traitor_log:
                 lines.append("Chat segreta dei Traditori (ultime notti):\n" + "\n".join(self.traitor_log[-8:]))
+        if p.shield:
+            lines.append("Possiedi uno SCUDO segreto: ti salva dal prossimo assassinio notturno.")
+        immune = [x.name for x in alive if x.immune]
+        if immune:
+            lines.append("Immunità oggi (non votabili): " + ", ".join(immune) + ".")
         lines.append("\nSTORIA PUBBLICA DELLA PARTITA:\n" + self.history())
         if p.thoughts:
             lines.append("\nI TUOI ULTIMI PENSIERI PRIVATI:\n" + "\n".join(t[:300] for t in p.thoughts[-4:]))
@@ -210,7 +252,10 @@ class Game:
         task: str,
         options: Optional[list[str]] = None,
         max_tokens: int = 350,
+        info: Optional[dict] = None,
     ) -> dict[str, Any]:
+        if p.human:
+            return await self.ask_human(p, kind, options or [], info or {})
         user = self.context(p) + "\n\n" + task
         try:
             raw = await self.llm.complete(
@@ -227,6 +272,29 @@ class Game:
             p.thoughts.append(f"G{self.day}: {thought}")
         return data
 
+    async def ask_human(self, p: Player, kind: str, options: list[str], info: dict) -> dict[str, Any]:
+        self.turn_seq += 1
+        tid = self.turn_seq
+        fut = asyncio.get_running_loop().create_future()
+        self.turns[tid] = fut
+        await self.emit("human_turn", actor=p.name, secret=True, to=[p.name], turn=tid, kind=kind, options=options, info=info)
+        try:
+            data = await asyncio.wait_for(fut, timeout=900)
+        except asyncio.TimeoutError:
+            data = {}
+            await self.emit("warn", f"{p.name}: tempo scaduto, scelta di riserva.", secret=True)
+        finally:
+            self.turns.pop(tid, None)
+        await self.emit("human_done", actor=p.name, secret=True, to=[p.name], turn=tid)
+        return data if isinstance(data, dict) else {}
+
+    def submit(self, tid: int, data: dict) -> bool:
+        fut = self.turns.get(tid)
+        if not fut or fut.done():
+            return False
+        fut.set_result(data)
+        return True
+
     # ----------------------------------------------------------------- fasi
     async def setup(self) -> None:
         self.players = [
@@ -235,6 +303,8 @@ class Game:
                 name=c["name"],
                 archetype=c.get("archetype") or "un concorrente",
                 prompt=c["prompt"],
+                historical=(c.get("historical") or "") if self.historical else "",
+                human=c["name"] in self.human_names,
             )
             for i, c in enumerate(self.characters)
         ]
@@ -243,7 +313,11 @@ class Game:
         await self.emit(
             "setup",
             f"{len(self.players)} concorrenti entrano nel castello.",
-            players=[{"id": p.id, "name": p.name, "archetype": p.archetype, "role": p.role} for p in self.players],
+            players=[
+                {"id": p.id, "name": p.name, "archetype": p.archetype, "role": p.role, "human": p.human,
+                 "historical": p.historical}
+                for p in self.players
+            ],
         )
         await self.emit(
             "gm",
@@ -251,17 +325,79 @@ class Game:
         )
         names = ", ".join(p.name for p in self.players if p.role == "traitor")
         await self.emit("gm", f"I Traditori sono: {names}.", secret=True)
-        await self.emit("pot", pot=self.pot)
+        for p in self.players:
+            if not p.human:
+                continue
+            if p.role == "traitor":
+                mates = [x.name for x in self.players if x.role == "traitor" and x is not p]
+                msg = f"Sei un TRADITORE." + (f" Complici: {', '.join(mates)}." if mates else "")
+            else:
+                msg = "Sei un FEDELE."
+            await self.emit("gm", f"{p.name}, {msg}", secret=True, to=[p.name])
+        await self.emit("pot", pot=self.pot, bounty=self.bounty)
 
     async def mission(self) -> None:
         await self.set_phase("mission", f"Giorno {self.day} · Missione")
         title, desc = self.rng.choice(MISSIONS)
-        gain = 250 * self.rng.randint(1, 6)
-        self.pot += gain
-        text = f"Missione «{title}»: {desc}. La squadra guadagna {gain} €."
-        self.log(f"Missione: {title}. Montepremi +{gain} € (totale {self.pot} €).")
-        await self.emit("gm", text)
-        await self.emit("pot", pot=self.pot)
+        stake = 250 * self.rng.randint(1, 6)
+        roll = self.rng.random()
+        perk = "shield" if roll < 0.45 else "immunity" if roll < 0.7 else None
+        perk_txt = {"shield": " In palio anche uno SCUDO segreto.", "immunity": " In palio anche l'IMMUNITÀ.", None: ""}[perk]
+        await self.emit("gm", f"Missione «{title}»: {desc}. Posta in palio: fino a {stake} €.{perk_txt} Servono almeno {stake // 2} € per vincere il vantaggio.")
+
+        traitors = self.alive_traitors()[:]
+        self.rng.shuffle(traitors)
+
+        async def decide(t: Player):
+            task = (
+                f"COMPITO: missione «{title}», posta {stake} €{perk_txt.lower()}. Decidi in segreto se SABOTARLA.\n"
+                f"Sabotare toglie circa il 20-35% della posta a testa alla squadra e lo manda nel bottino segreto dei Traditori "
+                f"(oggi {self.bounty} €). Se la squadra incassa meno di {stake // 2} € non c'è nessun vantaggio per nessuno. "
+                "Un incasso molto basso insospettisce i Fedeli; non sabotare ti protegge dai sospetti.\n"
+                'Rispondi SOLO con un JSON valido, senza altro testo:\n'
+                '{"thought": "ragionamento privato (1-2 frasi)", "sabotage": true}  oppure  {"thought": "...", "sabotage": false}'
+            )
+            data = await self.ask(t, "sabotage", task, options=[], max_tokens=250, info={"title": title, "stake": stake, "perk": perk, "bounty": self.bounty})
+            raw = data.get("sabotage")
+            return t, (raw is True or str(raw).strip().lower() in ("true", "si", "sì", "yes")), data.get("thought")
+
+        decisions = await asyncio.gather(*[decide(t) for t in traitors]) if traitors else []
+        tnames = [t.name for t in traitors]
+        saboteurs = []
+        for t, sab_yes, thought in decisions:
+            if sab_yes:
+                saboteurs.append(t)
+            await self.emit("sabotage", f"{t.name} {'SABOTA' if sab_yes else 'non sabota'} la missione.", actor=t.name, secret=True, to=tnames, thought=thought, sabotage=sab_yes)
+
+        natural = round(self.rng.uniform(0, 0.2) * stake / 10) * 10
+        sab_loss = sum(round(self.rng.uniform(0.2, 0.35) * stake / 10) * 10 for _ in saboteurs)
+        sab_loss = min(sab_loss, stake - natural)
+        earned = stake - natural - sab_loss
+        self.pot += earned
+        self.bounty += sab_loss
+        if sab_loss:
+            await self.emit("gm", f"Bottino dei Traditori +{sab_loss} € (totale {self.bounty} €).", secret=True, to=tnames)
+        verdict = "Prova perfetta!" if earned == stake else "La prova è andata male." if earned * 2 < stake else ""
+        self.log(f"Missione: {title}. Posta {stake} €, incassati {earned} € (mancano {stake - earned} €). Montepremi {self.pot} €.")
+        await self.emit("gm", f"La squadra incassa {earned} € su {stake} €. {verdict}".strip())
+        await self.emit("pot", pot=self.pot, bounty=self.bounty)
+
+        if perk and earned * 2 >= stake:
+            pool = [p for p in self.alive() if not (perk == "shield" and p.shield)]
+            if pool:
+                w = self.rng.choice(pool)
+                if perk == "shield":
+                    w.shield = True
+                    await self.emit("gm", "Uno scudo segreto è stato assegnato a un concorrente.")
+                    await self.emit("gm", f"{w.name}: hai vinto lo SCUDO. Ti salverà da un assassinio.", secret=True, to=[w.name], perk="shield", holder=w.name)
+                    self.log("Uno scudo segreto è stato assegnato a qualcuno.")
+                else:
+                    w.immune = True
+                    self.log(f"{w.name} vince l'IMMUNITÀ: oggi non può essere votato.")
+                    await self.emit("gm", f"{w.name} vince l'IMMUNITÀ: stasera non potrà essere votato.", actor=w.name, perk="immunity", holder=w.name)
+        elif perk:
+            await self.emit("gm", "Incasso insufficiente: nessun vantaggio assegnato.")
+            self.log("Incasso insufficiente: nessun vantaggio assegnato.")
 
     async def discussion(self) -> None:
         await self.set_phase("discussion", f"Giorno {self.day} · Discussione")
@@ -301,7 +437,7 @@ class Game:
 
     async def roundtable(self) -> Player:
         await self.set_phase("roundtable", f"Giorno {self.day} · Tavola rotonda")
-        candidates = [p.name for p in self.alive()]
+        candidates = [p.name for p in self.alive() if not p.immune]
         votes = await self.collect_votes(self.alive(), candidates, "tavola rotonda")
         for p, target, thought in votes:
             await self.emit("vote", f"{p.name} vota {target}", actor=p.name, target=target, thought=thought)
@@ -327,6 +463,8 @@ class Game:
         else:
             out_name = tied[0]
 
+        for p in self.players:
+            p.immune = False
         out = self.by_name(out_name)
         out.alive = False
         out.out_text = f"eliminato dal voto, era {role_label(out.role)}"
@@ -366,7 +504,10 @@ class Game:
                 '{"thought": "ragionamento privato", "say": "messaggio ai complici (max 40 parole)", '
                 '"target": "NomeEsatto", "action": "murder"}'
             )
-            data = await self.ask(t, "murder", task, options=victims_pool)
+            data = await self.ask(
+                t, "murder", task, options=victims_pool,
+                info={"can_recruit": can_recruit, "proposals": so_far},
+            )
             target = match_name(data.get("target"), victims_pool) or self.rng.choice(victims_pool)
             action = "recruit" if (can_recruit and data.get("action") == "recruit") else "murder"
             say = str(data.get("say") or f"Propongo {target}.").strip()
@@ -391,6 +532,15 @@ class Game:
                 return
 
         victim = self.by_name(target)
+        if victim.shield:
+            victim.shield = False
+            tn = [t.name for t in traitors]
+            self.facts.setdefault(self.day, {})["night"] = "assassinio fallito (scudo)."
+            self.log("Stanotte l'assassinio è fallito: la vittima aveva uno scudo.", day=next_day)
+            self.phase = "morning"
+            await self.emit("gm", f"{victim.name} aveva uno scudo: l'assassinio fallisce.", secret=True, to=tn + [victim.name], shield_used=victim.name)
+            await self.emit("gm", "Alba sul castello: qualcuno è stato attaccato ma uno scudo l'ha salvato. Nessuno è morto.")
+            return
         victim.alive = False
         victim.out_text = "assassinato"
         self.facts.setdefault(self.day, {})["night"] = f"{victim.name} assassinato."
@@ -437,11 +587,12 @@ class Game:
         self.result = winner
         self.phase = "end"
         winners = self.alive_faithful() if winner == "faithful" else self.alive_traitors()
-        share = self.pot // max(1, len(winners))
+        total = self.pot + (self.bounty if winner == "traitors" else 0)
+        share = total // max(1, len(winners))
         label = "I Fedeli" if winner == "faithful" else "I Traditori"
         await self.emit(
             "end",
-            f"{label} vincono! Montepremi {self.pot} €, {share} € a testa a "
+            f"{label} vincono! {'Montepremi ' + str(self.pot) + ' € + bottino ' + str(self.bounty) + ' €' if winner == 'traitors' else 'Montepremi ' + str(self.pot) + ' €'}, {share} € a testa a "
             + ", ".join(p.name for p in winners) + ".",
             winner=winner,
             share=share,

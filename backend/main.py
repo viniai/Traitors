@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from characters import generate_character
 from engine import Game
 from llm import DEFAULT_MODEL, LLMError, MockLLM, create_llm, has_llm_key
-from personalities import CHARACTERS
+from personalities import CHARACTERS, HISTORICAL_CHARACTERS
 
 BASE = Path(__file__).parent
 FRONTEND = BASE.parent / "frontend"
@@ -32,6 +32,7 @@ class CharacterIn(BaseModel):
     name: str = Field(max_length=20)
     archetype: str = Field("", max_length=60)
     prompt: str = Field(max_length=800)
+    historical: str = Field("", max_length=160)
 
 
 class NewGame(BaseModel):
@@ -42,6 +43,18 @@ class NewGame(BaseModel):
     model: Optional[str] = None
     seed: Optional[int] = None
     characters: Optional[list[CharacterIn]] = Field(None, min_length=6, max_length=14)
+    historical: bool = False
+    human: list[str] = Field(default_factory=list, max_length=14)
+
+
+class TurnIn(BaseModel):
+    turn: int
+    say: Optional[str] = Field(None, max_length=600)
+    vote: Optional[str] = None
+    target: Optional[str] = None
+    action: Optional[str] = None
+    accept: Optional[bool] = None
+    sabotage: Optional[bool] = None
 
 
 class GenerateIn(BaseModel):
@@ -49,6 +62,7 @@ class GenerateIn(BaseModel):
     name: Optional[str] = Field(None, max_length=20)
     taken: list[str] = Field(default_factory=list, max_length=20)
     model: Optional[str] = None
+    historical: bool = False
 
 
 BAD_NAME = re.compile(r'[,;:"{}\n\r\t]')
@@ -66,7 +80,7 @@ def clean_cast(chars: list[CharacterIn], n_traitors: int) -> list[dict]:
         seen.add(name.casefold())
         if not c.prompt.strip():
             raise HTTPException(422, f"{name}: manca la personalità")
-        out.append({"name": name, "archetype": c.archetype.strip(), "prompt": c.prompt.strip()})
+        out.append({"name": name, "archetype": c.archetype.strip(), "prompt": c.prompt.strip(), "historical": c.historical.strip()})
     if n_traitors * 2 >= len(out):
         raise HTTPException(422, "Troppi Traditori per questo numero di giocatori")
     return out
@@ -78,8 +92,12 @@ def health():
 
 
 @app.get("/api/characters")
-def default_characters():
-    return [{"name": c["name"], "archetype": c["archetype"], "prompt": c["prompt"]} for c in CHARACTERS]
+def default_characters(set: str = "default"):
+    src = HISTORICAL_CHARACTERS if set == "historical" else CHARACTERS
+    return [
+        {"name": c["name"], "archetype": c["archetype"], "prompt": c["prompt"], "historical": c.get("historical", "")}
+        for c in src
+    ]
 
 
 @app.post("/api/characters/generate")
@@ -92,7 +110,7 @@ async def characters_generate(body: GenerateIn):
         except Exception as exc:
             raise HTTPException(500, f"Impossibile avviare il client LLM: {exc}")
     try:
-        return await generate_character(llm, body.brief.strip(), (body.name or "").strip() or None, body.taken)
+        return await generate_character(llm, body.brief.strip(), (body.name or "").strip() or None, body.taken, body.historical)
     except LLMError as exc:
         raise HTTPException(502, f"Generazione non riuscita: {exc}")
 
@@ -100,6 +118,12 @@ async def characters_generate(body: GenerateIn):
 @app.post("/api/games")
 async def create_game(body: NewGame):
     chars = clean_cast(body.characters, body.traitors) if body.characters else None
+    cast_names = {c["name"] for c in (chars or (HISTORICAL_CHARACTERS if body.historical else CHARACTERS))}
+    unknown = [n for n in body.human if n not in cast_names]
+    if unknown:
+        raise HTTPException(422, f"Personaggio non trovato: {', '.join(unknown)}")
+    if len(body.human) >= len(cast_names):
+        raise HTTPException(422, "Almeno un personaggio deve restare all'IA.")
     mock = body.mock if body.mock is not None else not has_llm_key()
     if not mock and not has_llm_key():
         raise HTTPException(
@@ -119,10 +143,12 @@ async def create_game(body: NewGame):
         n_traitors=body.traitors,
         rounds=body.rounds,
         delay=delay,
-        meta={"mock": mock, "model": llm.name, "traitors": body.traitors, "rounds": body.rounds},
+        meta={"mock": mock, "model": llm.name, "traitors": body.traitors, "rounds": body.rounds, "historical": body.historical, "human": body.human},
         save_dir=GAMES_DIR,
         seed=body.seed,
-        characters=chars,
+        characters=(chars or (HISTORICAL_CHARACTERS if body.historical else None)),
+        historical=body.historical,
+        human=body.human,
     )
     GAMES[gid] = game
     TASKS[gid] = asyncio.create_task(game.run())
@@ -202,6 +228,18 @@ async def stream_events(gid: str, request: Request, last: int = 0):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.post("/api/games/{gid}/turn")
+async def submit_turn(gid: str, body: TurnIn):
+    game = GAMES.get(gid)
+    if not game:
+        raise HTTPException(404, "Partita non trovata")
+    data = body.model_dump(exclude_none=True)
+    tid = data.pop("turn")
+    if not game.submit(tid, data):
+        raise HTTPException(409, "Turno non più in attesa")
+    return {"ok": True}
 
 
 @app.delete("/api/games/{gid}")

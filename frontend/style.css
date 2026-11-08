@@ -165,6 +165,33 @@ select, input[type="text"] {
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
 
+/* ---------- sabotaggio, umani, storia ---------- */
+.bounty { display: none; font: 600 13px var(--serif); color: #e07a8c; font-variant-numeric: tabular-nums; }
+body.god .bounty, body.traitor-view .bounty { display: block; }
+.secret.mine { display: flex; }
+.note.secret.mine, .card.secret.mine { display: block; }
+.note.sabotage { color: #e07a8c; }
+.pl .tag { position: absolute; top: -4px; right: -4px; font-size: 12px; line-height: 1; }
+.pl { position: relative; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; font-size: 14px; }
+.check input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.check small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.char .you { flex: none; font-size: 11px; color: var(--gold); border: 1px solid var(--gold); border-radius: 8px; padding: 1px 6px; }
+.chk-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+.chk-row input { width: 18px; height: 18px; }
+.turn {
+  position: sticky; bottom: 0; z-index: 3; padding: 12px 14px; background: #1d1428;
+  border-top: 2px solid var(--gold); display: flex; flex-direction: column; gap: 8px;
+  max-height: 55dvh; overflow-y: auto;
+}
+.turn[hidden] { display: none; }
+.turn h3 { margin: 0; font-size: 15px; color: var(--gold); }
+.turn .sub { margin: 0; font-size: 13px; color: var(--muted); }
+.turn .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.turn .opts .btn { flex: none; min-height: 40px; padding: 0 14px; }
+.turn .opts .btn.sel { border-color: var(--gold); color: var(--gold); }
+.turn textarea { min-height: 70px; }
+
 /* ---------- personaggi ---------- */
 .cast-btn { width: 100%; flex: none; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .hint { margin: 0 0 10px; color: #d9a35a; font-size: 13px; }

@@ -175,6 +175,33 @@ select, input[type="text"] {
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
 
+/* ---------- sabotaggio, umani, storia ---------- */
+.bounty { display: none; font: 600 13px var(--serif); color: #e07a8c; font-variant-numeric: tabular-nums; }
+body.god .bounty, body.traitor-view .bounty { display: block; }
+.secret.mine { display: flex; }
+.note.secret.mine, .card.secret.mine { display: block; }
+.note.sabotage { color: #e07a8c; }
+.pl .tag { position: absolute; top: -4px; right: -4px; font-size: 12px; line-height: 1; }
+.pl { position: relative; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; font-size: 14px; }
+.check input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.check small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.char .you { flex: none; font-size: 11px; color: var(--gold); border: 1px solid var(--gold); border-radius: 8px; padding: 1px 6px; }
+.chk-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+.chk-row input { width: 18px; height: 18px; }
+.turn {
+  position: sticky; bottom: 0; z-index: 3; padding: 12px 14px; background: #1d1428;
+  border-top: 2px solid var(--gold); display: flex; flex-direction: column; gap: 8px;
+  max-height: 55dvh; overflow-y: auto;
+}
+.turn[hidden] { display: none; }
+.turn h3 { margin: 0; font-size: 15px; color: var(--gold); }
+.turn .sub { margin: 0; font-size: 13px; color: var(--muted); }
+.turn .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.turn .opts .btn { flex: none; min-height: 40px; padding: 0 14px; }
+.turn .opts .btn.sel { border-color: var(--gold); color: var(--gold); }
+.turn textarea { min-height: 70px; }
+
 /* ---------- personaggi ---------- */
 .cast-btn { width: 100%; flex: none; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .hint { margin: 0 0 10px; color: #d9a35a; font-size: 13px; }
@@ -224,6 +251,7 @@ textarea {
     <div class="stats">
       <div class="pill" id="phase">In attesa</div>
       <div class="pot" id="pot">0 €</div>
+      <div class="bounty" id="bounty" title="Bottino segreto dei Traditori">🗡 0 €</div>
     </div>
   </header>
 
@@ -235,6 +263,8 @@ textarea {
       <p>Avvia una nuova partita per far entrare dieci concorrenti.</p>
     </div>
   </main>
+
+  <section class="turn" id="turn" hidden></section>
 
   <footer class="bar">
     <button id="btn-new" class="btn primary">Nuova partita</button>
@@ -253,6 +283,11 @@ textarea {
           <option value="llm">LLM configurato (10 agenti)</option>
         </select>
         <small id="mode-hint"></small>
+      </label>
+
+      <label class="check">
+        <input type="checkbox" id="opt-historical">
+        <span>Modalità storica <small>personaggi storici con coscienza di sé e dei rapporti reali tra loro</small></span>
       </label>
 
       <div class="row">
@@ -315,7 +350,7 @@ textarea {
   
 <script>
 
-const __EV = [{"n": 1, "type": "setup", "day": 0, "phase": "setup", "actor": null, "text": "10 concorrenti entrano nel castello.", "secret": false, "players": [{"id": 0, "name": "Marta", "archetype": "la Paranoica", "role": "faithful"}, {"id": 1, "name": "Giulio", "archetype": "il Diplomatico", "role": "faithful"}, {"id": 2, "name": "Elena", "archetype": "la Logica", "role": "traitor"}, {"id": 3, "name": "Rocco", "archetype": "il Teatrale", "role": "faithful"}, {"id": 4, "name": "Sofia", "archetype": "la Silenziosa", "role": "faithful"}, {"id": 5, "name": "Dario", "archetype": "il Leale", "role": "traitor"}, {"id": 6, "name": "Chiara", "archetype": "la Seduttrice", "role": "traitor"}, {"id": 7, "name": "Bruno", "archetype": "il Burbero", "role": "faithful"}, {"id": 8, "name": "Livia", "archetype": "l'Istintiva", "role": "faithful"}, {"id": 9, "name": "Tommaso", "archetype": "il Comico", "role": "faithful"}]}, {"n": 2, "type": "gm", "day": 0, "phase": "setup", "actor": null, "text": "10 concorrenti, 3 Traditori nascosti tra loro. Che il gioco abbia inizio.", "secret": false}, {"n": 3, "type": "gm", "day": 0, "phase": "setup", "actor": null, "text": "I Traditori sono: Elena, Dario, Chiara.", "secret": true}, {"n": 4, "type": "pot", "day": 0, "phase": "setup", "actor": null, "text": "", "secret": false, "pot": 0}, {"n": 5, "type": "phase", "day": 1, "phase": "mission", "actor": null, "text": "Giorno 1 · Missione", "secret": false}, {"n": 6, "type": "gm", "day": 1, "phase": "mission", "actor": null, "text": "Missione «Il tesoro nella nebbia»: cercare le urne nascoste nel parco del castello. La squadra guadagna 250 €.", "secret": false}, {"n": 7, "type": "pot", "day": 1, "phase": "mission", "actor": null, "text": "", "secret": false, "pot": 250}, {"n": 8, "type": "phase", "day": 1, "phase": "discussion", "actor": null, "text": "Giorno 1 · Discussione", "secret": false}, {"n": 9, "type": "speech", "day": 1, "phase": "discussion", "actor": "Rocco", "text": "Chiara difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 10, "type": "speech", "day": 1, "phase": "discussion", "actor": "Elena", "text": "Secondo me Marta nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 11, "type": "speech", "day": 1, "phase": "discussion", "actor": "Bruno", "text": "Ho notato che Dario ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 12, "type": "speech", "day": 1, "phase": "discussion", "actor": "Tommaso", "text": "Marta difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 13, "type": "speech", "day": 1, "phase": "discussion", "actor": "Chiara", "text": "Ho notato che Bruno ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 14, "type": "speech", "day": 1, "phase": "discussion", "actor": "Marta", "text": "Non mi fido di Elena: ieri era troppo sicuro di sé.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 15, "type": "speech", "day": 1, "phase": "discussion", "actor": "Sofia", "text": "Non mi fido di Giulio: ieri era troppo sicuro di sé.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 16, "type": "speech", "day": 1, "phase": "discussion", "actor": "Dario", "text": "Ho notato che Bruno ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 17, "type": "speech", "day": 1, "phase": "discussion", "actor": "Giulio", "text": "Dobbiamo restare uniti, ma qualcuno qui mente. Io penso a Marta.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 18, "type": "speech", "day": 1, "phase": "discussion", "actor": "Livia", "text": "Secondo me Chiara nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 19, "type": "speech", "day": 1, "phase": "discussion", "actor": "Livia", "text": "Secondo me Sofia nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 20, "type": "speech", "day": 1, "phase": "discussion", "actor": "Elena", "text": "Secondo me Sofia nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 21, "type": "speech", "day": 1, "phase": "discussion", "actor": "Dario", "text": "Non mi fido di Tommaso: ieri era troppo sicuro di sé.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 22, "type": "speech", "day": 1, "phase": "discussion", "actor": "Rocco", "text": "Sofia difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 23, "type": "speech", "day": 1, "phase": "discussion", "actor": "Sofia", "text": "Ho un brutto presentimento su Chiara, non so spiegarlo.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 24, "type": "speech", "day": 1, "phase": "discussion", "actor": "Marta", "text": "Ho notato che Chiara ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 25, "type": "speech", "day": 1, "phase": "discussion", "actor": "Bruno", "text": "Secondo me Elena nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 26, "type": "speech", "day": 1, "phase": "discussion", "actor": "Giulio", "text": "Votiamo Dario e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 27, "type": "speech", "day": 1, "phase": "discussion", "actor": "Tommaso", "text": "Secondo me Bruno nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 28, "type": "speech", "day": 1, "phase": "discussion", "actor": "Chiara", "text": "Io sono un Fedele, lo giuro. Guardate Giulio, piuttosto.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 29, "type": "phase", "day": 1, "phase": "roundtable", "actor": null, "text": "Giorno 1 · Tavola rotonda", "secret": false}, {"n": 30, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Chiara", "secret": false, "target": "Chiara", "thought": "Meglio non espormi troppo adesso."}, {"n": 31, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Marta", "secret": false, "target": "Marta", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 32, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Sofia", "secret": false, "target": "Sofia", "thought": "Questo voto può cambiare tutto."}, {"n": 33, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Livia", "secret": false, "target": "Livia", "thought": "Questo voto può cambiare tutto."}, {"n": 34, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Sofia", "secret": false, "target": "Sofia", "thought": "Questo voto può cambiare tutto."}, {"n": 35, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Giulio", "text": "Giulio vota Livia", "secret": false, "target": "Livia", "thought": "Questo voto può cambiare tutto."}, {"n": 36, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 37, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 38, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Chiara", "secret": false, "target": "Chiara", "thought": "Vediamo se qualcuno abbocca."}, {"n": 39, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Rocco", "text": "Rocco vota Tommaso", "secret": false, "target": "Tommaso", "thought": "Meglio non espormi troppo adesso."}, {"n": 40, "type": "tally", "day": 1, "phase": "roundtable", "actor": null, "text": "Conteggio: Chiara 2, Sofia 2, Livia 2, Giulio 2, Marta 1, Tommaso 1", "secret": false, "counts": {"Chiara": 2, "Marta": 1, "Sofia": 2, "Livia": 2, "Giulio": 2, "Tommaso": 1}}, {"n": 41, "type": "gm", "day": 1, "phase": "roundtable", "actor": null, "text": "Parità tra Chiara, Sofia, Livia, Giulio. Si rivota solo tra loro.", "secret": false}, {"n": 42, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Rocco", "text": "Rocco vota Livia", "secret": false, "target": "Livia", "thought": "Vediamo se qualcuno abbocca.", "runoff": true}, {"n": 43, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione.", "runoff": true}, {"n": 44, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Livia", "secret": false, "target": "Livia", "thought": "Questo voto può cambiare tutto.", "runoff": true}, {"n": 45, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Sofia", "secret": false, "target": "Sofia", "thought": "Vediamo se qualcuno abbocca.", "runoff": true}, {"n": 46, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Sofia", "secret": false, "target": "Sofia", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 47, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione.", "runoff": true}, {"n": 48, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione.", "runoff": true}, {"n": 49, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Giulio", "text": "Giulio vota Livia", "secret": false, "target": "Livia", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 50, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Sofia", "secret": false, "target": "Sofia", "thought": "Questo voto può cambiare tutto.", "runoff": true}, {"n": 51, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Chiara", "secret": false, "target": "Chiara", "thought": "Questo voto può cambiare tutto.", "runoff": true}, {"n": 52, "type": "tally", "day": 1, "phase": "roundtable", "actor": null, "text": "Spareggio: Livia 3, Giulio 3, Sofia 3, Chiara 1", "secret": false, "counts": {"Livia": 3, "Giulio": 3, "Sofia": 3, "Chiara": 1}}, {"n": 53, "type": "gm", "day": 1, "phase": "roundtable", "actor": null, "text": "Ancora parità: decide il destino.", "secret": false}, {"n": 54, "type": "eliminated", "day": 1, "phase": "roundtable", "actor": "Giulio", "text": "Giulio lascia il castello.", "secret": false, "role": "faithful", "archetype": "il Diplomatico"}, {"n": 55, "type": "phase", "day": 1, "phase": "night", "actor": null, "text": "Notte 1", "secret": false}, {"n": 56, "type": "gm", "day": 1, "phase": "night", "actor": null, "text": "Cala la notte sul castello. I Traditori si riuniscono...", "secret": false}, {"n": 57, "type": "traitor_chat", "day": 1, "phase": "night", "actor": "Dario", "text": "Stanotte colpiamo Rocco.", "secret": true, "target": "Rocco", "thought": "Questo voto può cambiare tutto."}, {"n": 58, "type": "traitor_chat", "day": 1, "phase": "night", "actor": "Chiara", "text": "Stanotte colpiamo Bruno.", "secret": true, "target": "Bruno", "thought": "Meglio non espormi troppo adesso."}, {"n": 59, "type": "traitor_chat", "day": 1, "phase": "night", "actor": "Elena", "text": "Stanotte colpiamo Rocco.", "secret": true, "target": "Rocco", "thought": "Questo voto può cambiare tutto."}, {"n": 60, "type": "murder", "day": 1, "phase": "morning", "actor": "Rocco", "text": "Rocco è stato assassinato nella notte.", "secret": false, "role": "faithful", "archetype": "il Teatrale"}, {"n": 61, "type": "phase", "day": 2, "phase": "mission", "actor": null, "text": "Giorno 2 · Missione", "secret": false}, {"n": 62, "type": "gm", "day": 2, "phase": "mission", "actor": null, "text": "Missione «Il tesoro nella nebbia»: cercare le urne nascoste nel parco del castello. La squadra guadagna 1250 €.", "secret": false}, {"n": 63, "type": "pot", "day": 2, "phase": "mission", "actor": null, "text": "", "secret": false, "pot": 1500}, {"n": 64, "type": "phase", "day": 2, "phase": "discussion", "actor": null, "text": "Giorno 2 · Discussione", "secret": false}, {"n": 65, "type": "speech", "day": 2, "phase": "discussion", "actor": "Marta", "text": "Tommaso difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 66, "type": "speech", "day": 2, "phase": "discussion", "actor": "Sofia", "text": "Ho notato che Dario ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 67, "type": "speech", "day": 2, "phase": "discussion", "actor": "Elena", "text": "Io sono un Fedele, lo giuro. Guardate Sofia, piuttosto.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 68, "type": "speech", "day": 2, "phase": "discussion", "actor": "Livia", "text": "Ho notato che Elena ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 69, "type": "speech", "day": 2, "phase": "discussion", "actor": "Chiara", "text": "Io sono un Fedele, lo giuro. Guardate Marta, piuttosto.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 70, "type": "speech", "day": 2, "phase": "discussion", "actor": "Bruno", "text": "Non mi fido di Sofia: ieri era troppo sicuro di sé.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 71, "type": "speech", "day": 2, "phase": "discussion", "actor": "Tommaso", "text": "Votiamo Elena e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 72, "type": "speech", "day": 2, "phase": "discussion", "actor": "Dario", "text": "Io sono un Fedele, lo giuro. Guardate Bruno, piuttosto.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 73, "type": "speech", "day": 2, "phase": "discussion", "actor": "Dario", "text": "Ho un brutto presentimento su Livia, non so spiegarlo.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 74, "type": "speech", "day": 2, "phase": "discussion", "actor": "Marta", "text": "Tommaso difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 75, "type": "speech", "day": 2, "phase": "discussion", "actor": "Bruno", "text": "Secondo me Dario nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 76, "type": "speech", "day": 2, "phase": "discussion", "actor": "Chiara", "text": "Non mi fido di Dario: ieri era troppo sicuro di sé.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 77, "type": "speech", "day": 2, "phase": "discussion", "actor": "Elena", "text": "Ho notato che Sofia ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 78, "type": "speech", "day": 2, "phase": "discussion", "actor": "Livia", "text": "Secondo me Dario nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 79, "type": "speech", "day": 2, "phase": "discussion", "actor": "Sofia", "text": "Secondo me Dario nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 80, "type": "speech", "day": 2, "phase": "discussion", "actor": "Tommaso", "text": "Secondo me Marta nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 81, "type": "phase", "day": 2, "phase": "roundtable", "actor": null, "text": "Giorno 2 · Tavola rotonda", "secret": false}, {"n": 82, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Dario", "secret": false, "target": "Dario", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 83, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Dario", "secret": false, "target": "Dario", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 84, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Dario", "secret": false, "target": "Dario", "thought": "Questo voto può cambiare tutto."}, {"n": 85, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Elena", "secret": false, "target": "Elena", "thought": "Meglio non espormi troppo adesso."}, {"n": 86, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Marta", "secret": false, "target": "Marta", "thought": "Questo voto può cambiare tutto."}, {"n": 87, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Bruno", "secret": false, "target": "Bruno", "thought": "Questo voto può cambiare tutto."}, {"n": 88, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Sofia", "secret": false, "target": "Sofia", "thought": "Meglio non espormi troppo adesso."}, {"n": 89, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Marta", "secret": false, "target": "Marta", "thought": "Vediamo se qualcuno abbocca."}, {"n": 90, "type": "tally", "day": 2, "phase": "roundtable", "actor": null, "text": "Conteggio: Dario 3, Marta 2, Elena 1, Bruno 1, Sofia 1", "secret": false, "counts": {"Dario": 3, "Elena": 1, "Marta": 2, "Bruno": 1, "Sofia": 1}}, {"n": 91, "type": "eliminated", "day": 2, "phase": "roundtable", "actor": "Dario", "text": "Dario lascia il castello.", "secret": false, "role": "traitor", "archetype": "il Leale"}, {"n": 92, "type": "phase", "day": 2, "phase": "night", "actor": null, "text": "Notte 2", "secret": false}, {"n": 93, "type": "gm", "day": 2, "phase": "night", "actor": null, "text": "Cala la notte sul castello. I Traditori si riuniscono...", "secret": false}, {"n": 94, "type": "traitor_chat", "day": 2, "phase": "night", "actor": "Elena", "text": "Stanotte colpiamo Livia.", "secret": true, "target": "Livia", "thought": "Meglio non espormi troppo adesso."}, {"n": 95, "type": "traitor_chat", "day": 2, "phase": "night", "actor": "Chiara", "text": "Stanotte colpiamo Marta.", "secret": true, "target": "Marta", "thought": "Vediamo se qualcuno abbocca."}, {"n": 96, "type": "murder", "day": 2, "phase": "morning", "actor": "Livia", "text": "Livia è stato assassinato nella notte.", "secret": false, "role": "faithful", "archetype": "l'Istintiva"}, {"n": 97, "type": "phase", "day": 3, "phase": "mission", "actor": null, "text": "Giorno 3 · Missione", "secret": false}, {"n": 98, "type": "gm", "day": 3, "phase": "mission", "actor": null, "text": "Missione «La cena avvelenata»: indovinare quale piatto è stato contaminato. La squadra guadagna 250 €.", "secret": false}, {"n": 99, "type": "pot", "day": 3, "phase": "mission", "actor": null, "text": "", "secret": false, "pot": 1750}, {"n": 100, "type": "phase", "day": 3, "phase": "discussion", "actor": null, "text": "Giorno 3 · Discussione", "secret": false}, {"n": 101, "type": "speech", "day": 3, "phase": "discussion", "actor": "Sofia", "text": "Dobbiamo restare uniti, ma qualcuno qui mente. Io penso a Marta.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 102, "type": "speech", "day": 3, "phase": "discussion", "actor": "Marta", "text": "Non mi fido di Bruno: ieri era troppo sicuro di sé.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 103, "type": "speech", "day": 3, "phase": "discussion", "actor": "Tommaso", "text": "Io sono un Fedele, lo giuro. Guardate Elena, piuttosto.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 104, "type": "speech", "day": 3, "phase": "discussion", "actor": "Elena", "text": "Dobbiamo restare uniti, ma qualcuno qui mente. Io penso a Tommaso.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 105, "type": "speech", "day": 3, "phase": "discussion", "actor": "Chiara", "text": "Votiamo Marta e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 106, "type": "speech", "day": 3, "phase": "discussion", "actor": "Bruno", "text": "Ho notato che Elena ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 107, "type": "speech", "day": 3, "phase": "discussion", "actor": "Elena", "text": "Ho notato che Tommaso ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 108, "type": "speech", "day": 3, "phase": "discussion", "actor": "Bruno", "text": "Ho notato che Tommaso ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 109, "type": "speech", "day": 3, "phase": "discussion", "actor": "Sofia", "text": "Ho notato che Bruno ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 110, "type": "speech", "day": 3, "phase": "discussion", "actor": "Marta", "text": "Votiamo Tommaso e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 111, "type": "speech", "day": 3, "phase": "discussion", "actor": "Tommaso", "text": "Dobbiamo restare uniti, ma qualcuno qui mente. Io penso a Marta.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 112, "type": "speech", "day": 3, "phase": "discussion", "actor": "Chiara", "text": "Ho notato che Bruno ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 113, "type": "phase", "day": 3, "phase": "roundtable", "actor": null, "text": "Giorno 3 · Tavola rotonda", "secret": false}, {"n": 114, "type": "vote", "day": 3, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Tommaso", "secret": false, "target": "Tommaso", "thought": "Meglio non espormi troppo adesso."}, {"n": 115, "type": "vote", "day": 3, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Elena", "secret": false, "target": "Elena", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 116, "type": "vote", "day": 3, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso."}, {"n": 117, "type": "vote", "day": 3, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Chiara", "secret": false, "target": "Chiara", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 118, "type": "vote", "day": 3, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Elena", "secret": false, "target": "Elena", "thought": "Meglio non espormi troppo adesso."}, {"n": 119, "type": "vote", "day": 3, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Elena", "secret": false, "target": "Elena", "thought": "Questo voto può cambiare tutto."}, {"n": 120, "type": "tally", "day": 3, "phase": "roundtable", "actor": null, "text": "Conteggio: Elena 3, Tommaso 1, Bruno 1, Chiara 1", "secret": false, "counts": {"Tommaso": 1, "Elena": 3, "Bruno": 1, "Chiara": 1}}, {"n": 121, "type": "eliminated", "day": 3, "phase": "roundtable", "actor": "Elena", "text": "Elena lascia il castello.", "secret": false, "role": "traitor", "archetype": "la Logica"}, {"n": 122, "type": "phase", "day": 3, "phase": "night", "actor": null, "text": "Notte 3", "secret": false}, {"n": 123, "type": "gm", "day": 3, "phase": "night", "actor": null, "text": "Cala la notte sul castello. I Traditori si riuniscono...", "secret": false}, {"n": 124, "type": "traitor_chat", "day": 3, "phase": "night", "actor": "Chiara", "text": "Stanotte colpiamo Sofia.", "secret": true, "target": "Sofia", "thought": "Questo voto può cambiare tutto."}, {"n": 125, "type": "murder", "day": 3, "phase": "morning", "actor": "Sofia", "text": "Sofia è stato assassinato nella notte.", "secret": false, "role": "faithful", "archetype": "la Silenziosa"}, {"n": 126, "type": "phase", "day": 4, "phase": "mission", "actor": null, "text": "Giorno 4 · Missione", "secret": false}, {"n": 127, "type": "gm", "day": 4, "phase": "mission", "actor": null, "text": "Missione «La caccia alle chiavi»: trovare sette chiavi sparse nelle stanze. La squadra guadagna 1250 €.", "secret": false}, {"n": 128, "type": "pot", "day": 4, "phase": "mission", "actor": null, "text": "", "secret": false, "pot": 3000}, {"n": 129, "type": "phase", "day": 4, "phase": "discussion", "actor": null, "text": "Giorno 4 · Discussione", "secret": false}, {"n": 130, "type": "speech", "day": 4, "phase": "discussion", "actor": "Chiara", "text": "Ho un brutto presentimento su Tommaso, non so spiegarlo.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 131, "type": "speech", "day": 4, "phase": "discussion", "actor": "Bruno", "text": "Secondo me Tommaso nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 132, "type": "speech", "day": 4, "phase": "discussion", "actor": "Marta", "text": "Tommaso difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 133, "type": "speech", "day": 4, "phase": "discussion", "actor": "Tommaso", "text": "Ho un brutto presentimento su Bruno, non so spiegarlo.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 134, "type": "speech", "day": 4, "phase": "discussion", "actor": "Tommaso", "text": "Votiamo Marta e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 135, "type": "speech", "day": 4, "phase": "discussion", "actor": "Marta", "text": "Ho un brutto presentimento su Chiara, non so spiegarlo.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 136, "type": "speech", "day": 4, "phase": "discussion", "actor": "Chiara", "text": "Io sono un Fedele, lo giuro. Guardate Bruno, piuttosto.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 137, "type": "speech", "day": 4, "phase": "discussion", "actor": "Bruno", "text": "Non mi fido di Marta: ieri era troppo sicuro di sé.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 138, "type": "phase", "day": 4, "phase": "roundtable", "actor": null, "text": "Giorno 4 · Tavola rotonda", "secret": false}, {"n": 139, "type": "vote", "day": 4, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso."}, {"n": 140, "type": "vote", "day": 4, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Tommaso", "secret": false, "target": "Tommaso", "thought": "Vediamo se qualcuno abbocca."}, {"n": 141, "type": "vote", "day": 4, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Tommaso", "secret": false, "target": "Tommaso", "thought": "Questo voto può cambiare tutto."}, {"n": 142, "type": "vote", "day": 4, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Chiara", "secret": false, "target": "Chiara", "thought": "Questo voto può cambiare tutto."}, {"n": 143, "type": "tally", "day": 4, "phase": "roundtable", "actor": null, "text": "Conteggio: Tommaso 2, Bruno 1, Chiara 1", "secret": false, "counts": {"Bruno": 1, "Tommaso": 2, "Chiara": 1}}, {"n": 144, "type": "eliminated", "day": 4, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso lascia il castello.", "secret": false, "role": "faithful", "archetype": "il Comico"}, {"n": 145, "type": "phase", "day": 4, "phase": "night", "actor": null, "text": "Notte 4", "secret": false}, {"n": 146, "type": "gm", "day": 4, "phase": "night", "actor": null, "text": "Cala la notte sul castello. I Traditori si riuniscono...", "secret": false}, {"n": 147, "type": "traitor_chat", "day": 4, "phase": "night", "actor": "Chiara", "text": "Stanotte colpiamo Marta.", "secret": true, "target": "Marta", "thought": "Vediamo se qualcuno abbocca."}, {"n": 148, "type": "murder", "day": 4, "phase": "morning", "actor": "Marta", "text": "Marta è stato assassinato nella notte.", "secret": false, "role": "faithful", "archetype": "la Paranoica"}, {"n": 149, "type": "end", "day": 4, "phase": "end", "actor": null, "text": "I Traditori vincono! Montepremi 3000 €, 3000 € a testa a Chiara.", "secret": false, "winner": "traitors", "share": 3000, "roles": [{"name": "Marta", "role": "faithful", "alive": false}, {"name": "Giulio", "role": "faithful", "alive": false}, {"name": "Elena", "role": "traitor", "alive": false}, {"name": "Rocco", "role": "faithful", "alive": false}, {"name": "Sofia", "role": "faithful", "alive": false}, {"name": "Dario", "role": "traitor", "alive": false}, {"name": "Chiara", "role": "traitor", "alive": true}, {"name": "Bruno", "role": "faithful", "alive": true}, {"name": "Livia", "role": "faithful", "alive": false}, {"name": "Tommaso", "role": "faithful", "alive": false}]}];
+const __EV = [{"n": 1, "type": "setup", "day": 0, "phase": "setup", "actor": null, "text": "10 concorrenti entrano nel castello.", "secret": false, "players": [{"id": 0, "name": "Marta", "archetype": "la Paranoica", "role": "faithful", "human": false, "historical": ""}, {"id": 1, "name": "Giulio", "archetype": "il Diplomatico", "role": "faithful", "human": false, "historical": ""}, {"id": 2, "name": "Elena", "archetype": "la Logica", "role": "traitor", "human": false, "historical": ""}, {"id": 3, "name": "Rocco", "archetype": "il Teatrale", "role": "faithful", "human": false, "historical": ""}, {"id": 4, "name": "Sofia", "archetype": "la Silenziosa", "role": "faithful", "human": false, "historical": ""}, {"id": 5, "name": "Dario", "archetype": "il Leale", "role": "traitor", "human": false, "historical": ""}, {"id": 6, "name": "Chiara", "archetype": "la Seduttrice", "role": "traitor", "human": false, "historical": ""}, {"id": 7, "name": "Bruno", "archetype": "il Burbero", "role": "faithful", "human": false, "historical": ""}, {"id": 8, "name": "Livia", "archetype": "l'Istintiva", "role": "faithful", "human": false, "historical": ""}, {"id": 9, "name": "Tommaso", "archetype": "il Comico", "role": "faithful", "human": false, "historical": ""}]}, {"n": 2, "type": "gm", "day": 0, "phase": "setup", "actor": null, "text": "10 concorrenti, 3 Traditori nascosti tra loro. Che il gioco abbia inizio.", "secret": false}, {"n": 3, "type": "gm", "day": 0, "phase": "setup", "actor": null, "text": "I Traditori sono: Elena, Dario, Chiara.", "secret": true}, {"n": 4, "type": "pot", "day": 0, "phase": "setup", "actor": null, "text": "", "secret": false, "pot": 0, "bounty": 0}, {"n": 5, "type": "phase", "day": 1, "phase": "mission", "actor": null, "text": "Giorno 1 · Missione", "secret": false}, {"n": 6, "type": "gm", "day": 1, "phase": "mission", "actor": null, "text": "Missione «Il tesoro nella nebbia»: cercare le urne nascoste nel parco del castello. Posta in palio: fino a 250 €. Servono almeno 125 € per vincere il vantaggio.", "secret": false}, {"n": 7, "type": "sabotage", "day": 1, "phase": "mission", "actor": "Chiara", "text": "Chiara SABOTA la missione.", "secret": true, "to": ["Chiara", "Dario", "Elena"], "thought": "Vediamo se qualcuno abbocca.", "sabotage": true}, {"n": 8, "type": "sabotage", "day": 1, "phase": "mission", "actor": "Dario", "text": "Dario non sabota la missione.", "secret": true, "to": ["Chiara", "Dario", "Elena"], "thought": "Devo sembrare innocente e spostare l'attenzione.", "sabotage": false}, {"n": 9, "type": "sabotage", "day": 1, "phase": "mission", "actor": "Elena", "text": "Elena non sabota la missione.", "secret": true, "to": ["Chiara", "Dario", "Elena"], "thought": "Meglio non espormi troppo adesso.", "sabotage": false}, {"n": 10, "type": "gm", "day": 1, "phase": "mission", "actor": null, "text": "Bottino dei Traditori +80 € (totale 80 €).", "secret": true, "to": ["Chiara", "Dario", "Elena"]}, {"n": 11, "type": "gm", "day": 1, "phase": "mission", "actor": null, "text": "La squadra incassa 140 € su 250 €.", "secret": false}, {"n": 12, "type": "pot", "day": 1, "phase": "mission", "actor": null, "text": "", "secret": false, "pot": 140, "bounty": 80}, {"n": 13, "type": "phase", "day": 1, "phase": "discussion", "actor": null, "text": "Giorno 1 · Discussione", "secret": false}, {"n": 14, "type": "speech", "day": 1, "phase": "discussion", "actor": "Elena", "text": "Non mi fido di Tommaso: ieri era troppo sicuro di sé.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 15, "type": "speech", "day": 1, "phase": "discussion", "actor": "Dario", "text": "Giulio difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 16, "type": "speech", "day": 1, "phase": "discussion", "actor": "Sofia", "text": "Secondo me Giulio nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 17, "type": "speech", "day": 1, "phase": "discussion", "actor": "Bruno", "text": "Non mi fido di Tommaso: ieri era troppo sicuro di sé.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 18, "type": "speech", "day": 1, "phase": "discussion", "actor": "Livia", "text": "Non mi fido di Giulio: ieri era troppo sicuro di sé.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 19, "type": "speech", "day": 1, "phase": "discussion", "actor": "Chiara", "text": "Ho notato che Bruno ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 20, "type": "speech", "day": 1, "phase": "discussion", "actor": "Tommaso", "text": "Dobbiamo restare uniti, ma qualcuno qui mente. Io penso a Marta.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 21, "type": "speech", "day": 1, "phase": "discussion", "actor": "Giulio", "text": "Secondo me Bruno nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 22, "type": "speech", "day": 1, "phase": "discussion", "actor": "Marta", "text": "Secondo me Dario nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 23, "type": "speech", "day": 1, "phase": "discussion", "actor": "Rocco", "text": "Secondo me Sofia nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 24, "type": "speech", "day": 1, "phase": "discussion", "actor": "Bruno", "text": "Non mi fido di Tommaso: ieri era troppo sicuro di sé.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 25, "type": "speech", "day": 1, "phase": "discussion", "actor": "Livia", "text": "Rocco difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 26, "type": "speech", "day": 1, "phase": "discussion", "actor": "Elena", "text": "Ho un brutto presentimento su Chiara, non so spiegarlo.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 27, "type": "speech", "day": 1, "phase": "discussion", "actor": "Tommaso", "text": "Ho notato che Dario ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 28, "type": "speech", "day": 1, "phase": "discussion", "actor": "Sofia", "text": "Secondo me Elena nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 29, "type": "speech", "day": 1, "phase": "discussion", "actor": "Chiara", "text": "Votiamo Sofia e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 30, "type": "speech", "day": 1, "phase": "discussion", "actor": "Dario", "text": "Secondo me Livia nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 31, "type": "speech", "day": 1, "phase": "discussion", "actor": "Rocco", "text": "Io sono un Fedele, lo giuro. Guardate Giulio, piuttosto.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 32, "type": "speech", "day": 1, "phase": "discussion", "actor": "Giulio", "text": "Ho un brutto presentimento su Chiara, non so spiegarlo.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 33, "type": "speech", "day": 1, "phase": "discussion", "actor": "Marta", "text": "Secondo me Bruno nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 34, "type": "phase", "day": 1, "phase": "roundtable", "actor": null, "text": "Giorno 1 · Tavola rotonda", "secret": false}, {"n": 35, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 36, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Sofia", "secret": false, "target": "Sofia", "thought": "Questo voto può cambiare tutto."}, {"n": 37, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Sofia", "secret": false, "target": "Sofia", "thought": "Questo voto può cambiare tutto."}, {"n": 38, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Dario", "secret": false, "target": "Dario", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 39, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Livia", "secret": false, "target": "Livia", "thought": "Questo voto può cambiare tutto."}, {"n": 40, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Giulio", "text": "Giulio vota Chiara", "secret": false, "target": "Chiara", "thought": "Meglio non espormi troppo adesso."}, {"n": 41, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Dario", "secret": false, "target": "Dario", "thought": "Questo voto può cambiare tutto."}, {"n": 42, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso."}, {"n": 43, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Rocco", "text": "Rocco vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 44, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Tommaso", "secret": false, "target": "Tommaso", "thought": "Meglio non espormi troppo adesso."}, {"n": 45, "type": "tally", "day": 1, "phase": "roundtable", "actor": null, "text": "Conteggio: Giulio 2, Sofia 2, Dario 2, Livia 1, Chiara 1, Bruno 1, Tommaso 1", "secret": false, "counts": {"Giulio": 2, "Sofia": 2, "Dario": 2, "Livia": 1, "Chiara": 1, "Bruno": 1, "Tommaso": 1}}, {"n": 46, "type": "gm", "day": 1, "phase": "roundtable", "actor": null, "text": "Parità tra Giulio, Sofia, Dario. Si rivota solo tra loro.", "secret": false}, {"n": 47, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Sofia", "secret": false, "target": "Sofia", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 48, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Giulio", "secret": false, "target": "Giulio", "thought": "Questo voto può cambiare tutto.", "runoff": true}, {"n": 49, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Rocco", "text": "Rocco vota Giulio", "secret": false, "target": "Giulio", "thought": "Vediamo se qualcuno abbocca.", "runoff": true}, {"n": 50, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Giulio", "text": "Giulio vota Dario", "secret": false, "target": "Dario", "thought": "Devo sembrare innocente e spostare l'attenzione.", "runoff": true}, {"n": 51, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Sofia", "secret": false, "target": "Sofia", "thought": "Devo sembrare innocente e spostare l'attenzione.", "runoff": true}, {"n": 52, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Giulio", "secret": false, "target": "Giulio", "thought": "Questo voto può cambiare tutto.", "runoff": true}, {"n": 53, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Giulio", "secret": false, "target": "Giulio", "thought": "Devo sembrare innocente e spostare l'attenzione.", "runoff": true}, {"n": 54, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Giulio", "secret": false, "target": "Giulio", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 55, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Dario", "secret": false, "target": "Dario", "thought": "Questo voto può cambiare tutto.", "runoff": true}, {"n": 56, "type": "vote", "day": 1, "phase": "roundtable", "actor": "Tommaso", "text": "Tommaso vota Dario", "secret": false, "target": "Dario", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 57, "type": "tally", "day": 1, "phase": "roundtable", "actor": null, "text": "Spareggio: Giulio 5, Dario 3, Sofia 2", "secret": false, "counts": {"Sofia": 2, "Giulio": 5, "Dario": 3}}, {"n": 58, "type": "eliminated", "day": 1, "phase": "roundtable", "actor": "Giulio", "text": "Giulio lascia il castello.", "secret": false, "role": "faithful", "archetype": "il Diplomatico"}, {"n": 59, "type": "phase", "day": 1, "phase": "night", "actor": null, "text": "Notte 1", "secret": false}, {"n": 60, "type": "gm", "day": 1, "phase": "night", "actor": null, "text": "Cala la notte sul castello. I Traditori si riuniscono...", "secret": false}, {"n": 61, "type": "traitor_chat", "day": 1, "phase": "night", "actor": "Dario", "text": "Stanotte colpiamo Tommaso.", "secret": true, "target": "Tommaso", "thought": "Questo voto può cambiare tutto."}, {"n": 62, "type": "traitor_chat", "day": 1, "phase": "night", "actor": "Elena", "text": "Stanotte colpiamo Sofia.", "secret": true, "target": "Sofia", "thought": "Questo voto può cambiare tutto."}, {"n": 63, "type": "traitor_chat", "day": 1, "phase": "night", "actor": "Chiara", "text": "Stanotte colpiamo Rocco.", "secret": true, "target": "Rocco", "thought": "Vediamo se qualcuno abbocca."}, {"n": 64, "type": "murder", "day": 1, "phase": "morning", "actor": "Tommaso", "text": "Tommaso è stato assassinato nella notte.", "secret": false, "role": "faithful", "archetype": "il Comico"}, {"n": 65, "type": "phase", "day": 2, "phase": "mission", "actor": null, "text": "Giorno 2 · Missione", "secret": false}, {"n": 66, "type": "gm", "day": 2, "phase": "mission", "actor": null, "text": "Missione «La biblioteca muta»: ricostruire un manoscritto senza poter parlare. Posta in palio: fino a 1000 €. In palio anche l'IMMUNITÀ. Servono almeno 500 € per vincere il vantaggio.", "secret": false}, {"n": 67, "type": "sabotage", "day": 2, "phase": "mission", "actor": "Elena", "text": "Elena SABOTA la missione.", "secret": true, "to": ["Elena", "Chiara", "Dario"], "thought": "Vediamo se qualcuno abbocca.", "sabotage": true}, {"n": 68, "type": "sabotage", "day": 2, "phase": "mission", "actor": "Chiara", "text": "Chiara non sabota la missione.", "secret": true, "to": ["Elena", "Chiara", "Dario"], "thought": "Devo sembrare innocente e spostare l'attenzione.", "sabotage": false}, {"n": 69, "type": "sabotage", "day": 2, "phase": "mission", "actor": "Dario", "text": "Dario SABOTA la missione.", "secret": true, "to": ["Elena", "Chiara", "Dario"], "thought": "Meglio non espormi troppo adesso.", "sabotage": true}, {"n": 70, "type": "gm", "day": 2, "phase": "mission", "actor": null, "text": "Bottino dei Traditori +590 € (totale 670 €).", "secret": true, "to": ["Elena", "Chiara", "Dario"]}, {"n": 71, "type": "gm", "day": 2, "phase": "mission", "actor": null, "text": "La squadra incassa 320 € su 1000 €. La prova è andata male.", "secret": false}, {"n": 72, "type": "pot", "day": 2, "phase": "mission", "actor": null, "text": "", "secret": false, "pot": 460, "bounty": 670}, {"n": 73, "type": "gm", "day": 2, "phase": "mission", "actor": null, "text": "Incasso insufficiente: nessun vantaggio assegnato.", "secret": false}, {"n": 74, "type": "phase", "day": 2, "phase": "discussion", "actor": null, "text": "Giorno 2 · Discussione", "secret": false}, {"n": 75, "type": "speech", "day": 2, "phase": "discussion", "actor": "Livia", "text": "Votiamo Elena e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 76, "type": "speech", "day": 2, "phase": "discussion", "actor": "Dario", "text": "Io sono un Fedele, lo giuro. Guardate Chiara, piuttosto.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 77, "type": "speech", "day": 2, "phase": "discussion", "actor": "Rocco", "text": "Ho un brutto presentimento su Bruno, non so spiegarlo.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 78, "type": "speech", "day": 2, "phase": "discussion", "actor": "Marta", "text": "Livia difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 79, "type": "speech", "day": 2, "phase": "discussion", "actor": "Chiara", "text": "Secondo me Sofia nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 80, "type": "speech", "day": 2, "phase": "discussion", "actor": "Elena", "text": "Non mi fido di Dario: ieri era troppo sicuro di sé.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 81, "type": "speech", "day": 2, "phase": "discussion", "actor": "Bruno", "text": "Ho notato che Elena ha cambiato voto all'ultimo momento. Strano, no?", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 82, "type": "speech", "day": 2, "phase": "discussion", "actor": "Sofia", "text": "Secondo me Dario nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 83, "type": "speech", "day": 2, "phase": "discussion", "actor": "Elena", "text": "Secondo me Sofia nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 84, "type": "speech", "day": 2, "phase": "discussion", "actor": "Marta", "text": "Secondo me Elena nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 85, "type": "speech", "day": 2, "phase": "discussion", "actor": "Dario", "text": "Secondo me Rocco nasconde qualcosa. Guardate come evita le domande.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 86, "type": "speech", "day": 2, "phase": "discussion", "actor": "Bruno", "text": "Livia difende sempre gli stessi nomi. A me puzza di complicità.", "secret": false, "thought": "Vediamo se qualcuno abbocca."}, {"n": 87, "type": "speech", "day": 2, "phase": "discussion", "actor": "Sofia", "text": "Votiamo Elena e vediamo cosa succede: peggio di così non può andare.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 88, "type": "speech", "day": 2, "phase": "discussion", "actor": "Chiara", "text": "Ho un brutto presentimento su Dario, non so spiegarlo.", "secret": false, "thought": "Meglio non espormi troppo adesso."}, {"n": 89, "type": "speech", "day": 2, "phase": "discussion", "actor": "Rocco", "text": "Ho un brutto presentimento su Marta, non so spiegarlo.", "secret": false, "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 90, "type": "speech", "day": 2, "phase": "discussion", "actor": "Livia", "text": "Ho un brutto presentimento su Sofia, non so spiegarlo.", "secret": false, "thought": "Questo voto può cambiare tutto."}, {"n": 91, "type": "phase", "day": 2, "phase": "roundtable", "actor": null, "text": "Giorno 2 · Tavola rotonda", "secret": false}, {"n": 92, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Dario", "secret": false, "target": "Dario", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 93, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Elena", "secret": false, "target": "Elena", "thought": "Meglio non espormi troppo adesso."}, {"n": 94, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Sofia", "secret": false, "target": "Sofia", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 95, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Rocco", "text": "Rocco vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso."}, {"n": 96, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Elena", "secret": false, "target": "Elena", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 97, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso."}, {"n": 98, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Sofia", "secret": false, "target": "Sofia", "thought": "Vediamo se qualcuno abbocca."}, {"n": 99, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Rocco", "secret": false, "target": "Rocco", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 100, "type": "tally", "day": 2, "phase": "roundtable", "actor": null, "text": "Conteggio: Elena 2, Sofia 2, Bruno 2, Dario 1, Rocco 1", "secret": false, "counts": {"Dario": 1, "Elena": 2, "Sofia": 2, "Bruno": 2, "Rocco": 1}}, {"n": 101, "type": "gm", "day": 2, "phase": "roundtable", "actor": null, "text": "Parità tra Elena, Sofia, Bruno. Si rivota solo tra loro.", "secret": false}, {"n": 102, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Dario", "text": "Dario vota Elena", "secret": false, "target": "Elena", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 103, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Sofia", "text": "Sofia vota Elena", "secret": false, "target": "Elena", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 104, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Elena", "text": "Elena vota Sofia", "secret": false, "target": "Sofia", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 105, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Rocco", "text": "Rocco vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 106, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Livia", "text": "Livia vota Sofia", "secret": false, "target": "Sofia", "thought": "Vediamo se qualcuno abbocca.", "runoff": true}, {"n": 107, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Chiara", "text": "Chiara vota Bruno", "secret": false, "target": "Bruno", "thought": "Vediamo se qualcuno abbocca.", "runoff": true}, {"n": 108, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Marta", "text": "Marta vota Bruno", "secret": false, "target": "Bruno", "thought": "Meglio non espormi troppo adesso.", "runoff": true}, {"n": 109, "type": "vote", "day": 2, "phase": "roundtable", "actor": "Bruno", "text": "Bruno vota Elena", "secret": false, "target": "Elena", "thought": "Vediamo se qualcuno abbocca.", "runoff": true}, {"n": 110, "type": "tally", "day": 2, "phase": "roundtable", "actor": null, "text": "Spareggio: Elena 3, Bruno 3, Sofia 2", "secret": false, "counts": {"Elena": 3, "Sofia": 2, "Bruno": 3}}, {"n": 111, "type": "gm", "day": 2, "phase": "roundtable", "actor": null, "text": "Ancora parità: decide il destino.", "secret": false}, {"n": 112, "type": "eliminated", "day": 2, "phase": "roundtable", "actor": "Bruno", "text": "Bruno lascia il castello.", "secret": false, "role": "faithful", "archetype": "il Burbero"}, {"n": 113, "type": "phase", "day": 2, "phase": "night", "actor": null, "text": "Notte 2", "secret": false}, {"n": 114, "type": "gm", "day": 2, "phase": "night", "actor": null, "text": "Cala la notte sul castello. I Traditori si riuniscono...", "secret": false}, {"n": 115, "type": "traitor_chat", "day": 2, "phase": "night", "actor": "Elena", "text": "Stanotte colpiamo Rocco.", "secret": true, "target": "Rocco", "thought": "Questo voto può cambiare tutto."}, {"n": 116, "type": "traitor_chat", "day": 2, "phase": "night", "actor": "Dario", "text": "Stanotte colpiamo Sofia.", "secret": true, "target": "Sofia", "thought": "Devo sembrare innocente e spostare l'attenzione."}, {"n": 117, "type": "traitor_chat", "day": 2, "phase": "night", "actor": "Chiara", "text": "Stanotte colpiamo Marta.", "secret": true, "target": "Marta", "thought": "Meglio non espormi troppo adesso."}, {"n": 118, "type": "murder", "day": 2, "phase": "morning", "actor": "Rocco", "text": "Rocco è stato assassinato nella notte.", "secret": false, "role": "faithful", "archetype": "il Teatrale"}, {"n": 119, "type": "end", "day": 2, "phase": "end", "actor": null, "text": "I Traditori vincono! Montepremi 460 € + bottino 670 €, 376 € a testa a Elena, Dario, Chiara.", "secret": false, "winner": "traitors", "share": 376, "roles": [{"name": "Marta", "role": "faithful", "alive": true}, {"name": "Giulio", "role": "faithful", "alive": false}, {"name": "Elena", "role": "traitor", "alive": true}, {"name": "Rocco", "role": "faithful", "alive": false}, {"name": "Sofia", "role": "faithful", "alive": true}, {"name": "Dario", "role": "traitor", "alive": true}, {"name": "Chiara", "role": "traitor", "alive": true}, {"name": "Bruno", "role": "faithful", "alive": false}, {"name": "Livia", "role": "faithful", "alive": true}, {"name": "Tommaso", "role": "faithful", "alive": false}]}];
 const __CAST = [{"name": "Marta", "archetype": "la Paranoica", "prompt": "Sospetti di tutti, sempre. Pensi che chi parla troppo voglia coprirsi e che chi tace nasconda qualcosa. Accusi in modo diretto, cambi bersaglio spesso e leggi tradimento in ogni gesto. Quando qualcuno ti accusa, ti agiti e contrattacchi."}, {"name": "Giulio", "archetype": "il Diplomatico", "prompt": "Eviti lo scontro e costruisci alleanze: cerchi il consenso, fai da mediatore e proponi voti 'di gruppo'. Parli con tono calmo e misurato. Voti di solito con la maggioranza, ma tieni un elenco mentale di chi ti ha tradito."}, {"name": "Elena", "archetype": "la Logica", "prompt": "Ragioni a freddo: analizzi la storia dei voti, cerchi incoerenze e fai piccoli calcoli di probabilità. Citi fatti precisi (chi ha votato chi, chi ha cambiato idea). Non ti fai guidare dalle emozioni e lo dici."}, {"name": "Rocco", "archetype": "il Teatrale", "prompt": "Sei drammatico ed esagerato: giuri sulla tua innocenza, usi metafore, pause e grandi gesti. Ami essere al centro dell'attenzione. Se vieni accusato, reciti l'offeso con enfasi da palcoscenico."}, {"name": "Sofia", "archetype": "la Silenziosa", "prompt": "Parli poco, con frasi brevi e precise. Osservi più che intervenire e quando parli è per dire qualcosa che hai notato davvero. Non ti fai trascinare nelle discussioni rumorose. Il tuo voto è ponderato e spesso sorprende."}, {"name": "Dario", "archetype": "il Leale", "prompt": "Per te contano i legami: difendi chi ti ha difeso e non voti mai un amico senza prove solide. Ricordi i torti ricevuti e ti vendichi con il voto. Sei diretto, caldo e un po' testardo."}, {"name": "Chiara", "archetype": "la Seduttrice", "prompt": "Sei carismatica e magnetica: lusinghi, fai sentire speciale chi ti sta davanti e orienti i voti con dolcezza. Sembri sempre rilassata. Preferisci convincere gli altri a eliminare qualcuno piuttosto che accusare in prima persona."}, {"name": "Bruno", "archetype": "il Burbero", "prompt": "Sei scettico, brusco e ti piace dire le cose come stanno. Detesti i giri di parole e i teatrini. Fai battute secche, non ti fidi di chi è troppo simpatico e voti con decisione, senza troppi ripensamenti."}, {"name": "Livia", "archetype": "l'Istintiva", "prompt": "Vai a pelle: le tue sensazioni contano più dei fatti. Cambi idea spesso, ti entusiasmi e ti spaventi in fretta. Dici 'ho un brutto presentimento' e ti fidi di quello. A volte hai ragione, a volte no."}, {"name": "Tommaso", "archetype": "il Comico", "prompt": "Scherzi per smorzare la tensione e sembri innocuo, ma osservi tutto con attenzione. Usi l'ironia per far uscire le persone allo scoperto e per sviare i sospetti. Quando la cosa si fa seria, sai diventarlo anche tu."}];
 const __json = (o) => new Response(JSON.stringify(o), {status: 200, headers: {'Content-Type': 'application/json'}});
 // Stessa logica della bozza lato server quando non c'è una chiave API.
@@ -385,6 +420,13 @@ window.EventSource = class {
     health: { llm: false, model: '' },
     cast: [],
     defaults: [],
+    set: 'default',
+    defaultsBy: { default: [], historical: [] },
+    mine: new Set(),
+    gameId: null,
+    live: false,
+    turns: new Map(),
+    selected: null,
   };
 
   const feed = $('#feed');
@@ -417,6 +459,8 @@ window.EventSource = class {
       a.dataset.role = p.role;
       a.dataset.revealed = String(p.revealed);
       b.append(a, el('span', 'nm', p.name));
+      const badges = (p.human ? '👤' : '') + (p.immune ? '🛡' : '') + (p.shield && (S.god || S.mine.has(p.name)) ? '🔰' : '');
+      if (badges) b.append(el('span', 'tag', badges));
       b.addEventListener('click', () => {
         S.focus = S.focus === p.name ? null : p.name;
         renderPlayers();
@@ -443,7 +487,10 @@ window.EventSource = class {
     const follow = nearBottom();
     if (ev.actor) node.dataset.actor = ev.actor;
     if (ev.target) node.dataset.target = ev.target;
-    if (ev.secret) node.classList.add('secret');
+    if (ev.secret) {
+      node.classList.add('secret');
+      if (ev.to && ev.to.some((n) => S.mine.has(n))) node.classList.add('mine');
+    }
     $('#empty')?.remove();
     feed.append(node);
     if (S.focus && node.dataset.actor !== S.focus && node.dataset.target !== S.focus && !node.classList.contains('divider')) {
@@ -460,8 +507,13 @@ window.EventSource = class {
     feed.replaceChildren();
     S.players.clear();
     S.focus = null;
+    S.mine = new Set();
+    S.turns.clear();
+    renderTurn();
+    document.body.classList.remove('traitor-view');
     renderPlayers();
     $('#pot').textContent = fmt(0);
+    $('#bounty').textContent = '🗡 ' + fmt(0);
     $('#phase').textContent = 'In attesa';
     const e = el('div', 'empty'); e.id = 'empty';
     e.append(el('p', 'empty-title', 'Il castello si sta riempiendo…'));
@@ -494,6 +546,8 @@ window.EventSource = class {
     p.alive = false;
     p.revealed = true;
     p.role = role || p.role;
+    for (const q of S.players.values()) q.immune = false;
+    updateTraitorView();
     renderPlayers();
   }
 
@@ -502,12 +556,34 @@ window.EventSource = class {
     switch (ev.type) {
       case 'setup':
         S.players.clear();
-        for (const p of ev.players) S.players.set(p.name, { ...p, alive: true, revealed: false });
+        S.mine = new Set(ev.players.filter((p) => p.human).map((p) => p.name));
+        for (const p of ev.players) {
+          S.players.set(p.name, { ...p, alive: true, revealed: S.mine.has(p.name), immune: false, shield: false });
+        }
+        updateTraitorView();
         renderPlayers();
         break;
 
       case 'pot':
         $('#pot').textContent = fmt(ev.pot);
+        if (ev.bounty != null) $('#bounty').textContent = '🗡 ' + fmt(ev.bounty);
+        break;
+
+      case 'sabotage': {
+        const n = el('div', 'note sabotage', `${ev.sabotage ? '🗡' : '🤝'} ${ev.text}`);
+        const t = thoughtNode(ev);
+        if (t) n.append(t);
+        add(n, ev);
+        break;
+      }
+
+      case 'human_turn':
+        if (S.live) { S.turns.set(ev.turn, ev); renderTurn(); }
+        break;
+
+      case 'human_done':
+        S.turns.delete(ev.turn);
+        renderTurn();
         break;
 
       case 'phase': {
@@ -516,9 +592,16 @@ window.EventSource = class {
         break;
       }
 
-      case 'gm':
+      case 'gm': {
         add(el('div', 'note', ev.text), ev);
+        const h = ev.holder && S.players.get(ev.holder);
+        if (h && ev.perk === 'immunity') h.immune = true;
+        if (h && ev.perk === 'shield') h.shield = true;
+        const used = ev.shield_used && S.players.get(ev.shield_used);
+        if (used) used.shield = false;
+        if (h || used) renderPlayers();
         break;
+      }
 
       case 'speech':
         add(bubble(ev, false), ev);
@@ -562,7 +645,7 @@ window.EventSource = class {
         add(n, { ...ev, secret: true });
         if (ev.accepted) {
           const p = S.players.get(ev.target);
-          if (p) { p.role = 'traitor'; renderPlayers(); }
+          if (p) { p.role = 'traitor'; updateTraitorView(); renderPlayers(); }
         }
         break;
       }
@@ -594,6 +677,105 @@ window.EventSource = class {
     }
   }
 
+  function updateTraitorView() {
+    const on = [...S.mine].some((n) => S.players.get(n)?.role === 'traitor');
+    document.body.classList.toggle('traitor-view', on);
+  }
+
+  // ------------------------------------------------------- turni del giocatore umano
+  async function sendTurn(ev, payload) {
+    try {
+      await api(`/games/${S.gameId}/turn`, { method: 'POST', body: JSON.stringify({ turn: ev.turn, ...payload }) });
+    } catch (e) {
+      alert(e.message);
+    }
+    S.turns.delete(ev.turn);
+    renderTurn();
+  }
+
+  function renderTurn() {
+    const box = $('#turn');
+    const ev = S.turns.values().next().value;
+    if (!ev) { box.hidden = true; box.replaceChildren(); S.selected = null; return; }
+    box.hidden = false;
+    box.replaceChildren();
+    const info = ev.info || {};
+    const who = ev.actor;
+    const btn = (label, fn, cls = '') => {
+      const b = el('button', 'btn ' + cls, label);
+      b.type = 'button';
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const area = (ph) => { const t = el('textarea'); t.maxLength = 500; t.placeholder = ph; return t; };
+    const opts = (names, onPick) => {
+      const row = el('div', 'opts');
+      for (const n of names) {
+        const b = btn(n, () => {
+          S.selected = n;
+          for (const x of row.children) x.classList.toggle('sel', x.textContent === n);
+          if (onPick) onPick(n);
+        });
+        if (S.selected === n) b.classList.add('sel');
+        row.append(b);
+      }
+      return row;
+    };
+    S.selected = null;
+
+    switch (ev.kind) {
+      case 'speak': {
+        box.append(el('h3', '', `Tocca a ${who}: parla`));
+        box.append(el('p', 'sub', 'Accusa, difenditi o proponi chi votare.'));
+        const t = area('Cosa dici agli altri?');
+        box.append(t, btn('Parla', () => sendTurn(ev, { say: t.value.trim() || '...' }), 'primary'));
+        break;
+      }
+      case 'vote': {
+        box.append(el('h3', '', `Tocca a ${who}: vota`));
+        box.append(el('p', 'sub', 'Chi vuoi eliminare?'));
+        box.append(opts(ev.options, (n) => sendTurn(ev, { vote: n })));
+        break;
+      }
+      case 'murder': {
+        box.append(el('h3', '', `Tocca a ${who}: scegli la vittima`));
+        if (info.proposals) box.append(el('p', 'sub', 'Proposte finora: ' + info.proposals.replace(/\n/g, ' ')));
+        box.append(opts(ev.options));
+        const t = area('Messaggio ai complici');
+        let rec = null;
+        if (info.can_recruit) {
+          const row = el('label', 'chk-row');
+          rec = el('input'); rec.type = 'checkbox';
+          row.append(rec, el('span', '', 'Recluta invece di uccidere'));
+          box.append(row);
+        }
+        box.append(t, btn('Conferma', () => {
+          if (!S.selected) { alert('Scegli un bersaglio.'); return; }
+          sendTurn(ev, { target: S.selected, say: t.value.trim() || `Propongo ${S.selected}.`, action: rec?.checked ? 'recruit' : 'murder' });
+        }, 'primary'));
+        break;
+      }
+      case 'recruit':
+        box.append(el('h3', '', `${who}: ti offrono di unirti ai Traditori`));
+        box.append(el('p', 'sub', 'Se rifiuti verrai assassinato.'));
+        box.append(el('div', 'opts'));
+        box.lastChild.append(btn('Accetta', () => sendTurn(ev, { accept: true }), 'primary'), btn('Rifiuta', () => sendTurn(ev, { accept: false })));
+        break;
+      case 'sabotage': {
+        box.append(el('h3', '', `${who}: sabotare «${info.title}»?`));
+        const perk = info.perk === 'shield' ? ' In palio uno scudo.' : info.perk === 'immunity' ? ' In palio l\'immunità.' : '';
+        box.append(el('p', 'sub', `Posta ${fmt(info.stake)}.${perk} Bottino attuale ${fmt(info.bounty)}. Sabotare rende soldi al bottino ma insospettisce i Fedeli.`));
+        const row = el('div', 'opts');
+        row.append(btn('Sabota', () => sendTurn(ev, { sabotage: true }), 'primary'), btn('Non sabotare', () => sendTurn(ev, { sabotage: false })));
+        box.append(row);
+        break;
+      }
+      default:
+        box.append(el('h3', '', `Tocca a ${who}`));
+    }
+    if (S.turns.size > 1) box.append(el('p', 'sub', `Altri turni in attesa: ${S.turns.size - 1}`));
+  }
+
   // --------------------------------------------------------- streaming / replay
   function stop() {
     if (S.es) { S.es.close(); S.es = null; }
@@ -605,6 +787,8 @@ window.EventSource = class {
   function connect(id) {
     stop();
     reset();
+    S.gameId = id;
+    S.live = true;
     const es = new EventSource(`/api/games/${id}/events`);
     S.es = es;
     es.onmessage = (m) => handle(JSON.parse(m.data));
@@ -628,6 +812,7 @@ window.EventSource = class {
   async function replay(id) {
     stop();
     reset();
+    S.live = false;
     try {
       const r = await fetch(`/api/games/${id}/transcript`);
       if (!r.ok) throw new Error('Partita non trovata');
@@ -697,7 +882,12 @@ window.EventSource = class {
         mock: $('#opt-mode').value === 'mock',
         traitors: Number($('#opt-traitors').value),
         rounds: Number($('#opt-rounds').value),
-        characters: S.cast.map((c) => ({ name: c.name.trim(), archetype: c.archetype.trim(), prompt: c.prompt.trim() })),
+        historical: S.set === 'historical',
+        human: S.cast.filter((c) => c.human).map((c) => c.name.trim()),
+        characters: S.cast.map((c) => ({
+          name: c.name.trim(), archetype: c.archetype.trim(), prompt: c.prompt.trim(),
+          historical: S.set === 'historical' ? (c.historical || '').trim() : '',
+        })),
       };
       const model = $('#opt-model').value.trim();
       if (!body.mock && model) body.model = model;
@@ -712,24 +902,27 @@ window.EventSource = class {
   }
 
   // ------------------------------------------------------------- personaggi
-  const CAST_KEY = 'cast.v1';
+  const castKey = () => (S.set === 'historical' ? 'cast.hist.v1' : 'cast.v1');
   const MIN_CAST = 6;
   const MAX_CAST = 14;
   const BAD_NAME = /[,;:"{}\n\r\t]/;
 
   function loadCast() {
     try {
-      const raw = JSON.parse(localStorage.getItem(CAST_KEY) || 'null');
+      const raw = JSON.parse(localStorage.getItem(castKey()) || 'null');
       if (Array.isArray(raw) && raw.length >= MIN_CAST) {
-        return raw.map((c) => ({ name: String(c.name || ''), archetype: String(c.archetype || ''), prompt: String(c.prompt || '') }));
+        return raw.map((c) => ({
+          name: String(c.name || ''), archetype: String(c.archetype || ''), prompt: String(c.prompt || ''),
+          historical: String(c.historical || ''), human: !!c.human,
+        }));
       }
     } catch (_) { /* nessun cast salvato */ }
-    return S.defaults.map((c) => ({ ...c }));
+    return S.defaults.map((c) => ({ ...c, human: false }));
   }
 
   function saveCast() {
     try {
-      localStorage.setItem(CAST_KEY, JSON.stringify(S.cast.map(({ name, archetype, prompt }) => ({ name, archetype, prompt }))));
+      localStorage.setItem(castKey(), JSON.stringify(S.cast.map(({ name, archetype, prompt, historical, human }) => ({ name, archetype, prompt, historical, human }))));
     } catch (_) { /* ignore */ }
   }
 
@@ -744,6 +937,7 @@ window.EventSource = class {
       seen.add(name.toLowerCase());
       if (!c.prompt.trim()) return `${name} non ha una personalità.`;
     }
+    if (S.cast.filter((c) => c.human).length >= S.cast.length) return 'Almeno un personaggio deve restare all\'IA.';
     return null;
   }
 
@@ -762,7 +956,8 @@ window.EventSource = class {
   }
 
   function updateCastLabel() {
-    $('#cast-label').textContent = `${S.cast.length} giocatori`;
+    const humans = S.cast.filter((c) => c.human).length;
+    $('#cast-label').textContent = `${S.cast.length} giocatori` + (humans ? ` · ${humans} controllati da te` : '');
     $('#cast-count').textContent = `${S.cast.length} / ${MAX_CAST}`;
   }
 
@@ -806,9 +1001,11 @@ window.EventSource = class {
       refreshTraitors();
       updateCastLabel();
     });
-    sum.append(av, meta, rm);
+    const you = el('span', 'you', '👤 tu');
+    sum.append(av, meta, you, rm);
 
     const paint = () => {
+      you.style.display = c.human ? '' : 'none';
       const name = c.name.trim();
       av.textContent = (name[0] || '?').toUpperCase();
       av.style.setProperty('--h', hue(name || String(i)));
@@ -817,6 +1014,12 @@ window.EventSource = class {
     };
 
     const nameIn = textInput(c.name, 20);
+    const histIn = textInput(c.historical || '', 160, 'es. Napoleone Bonaparte, imperatore dei Francesi (1769-1821)');
+    histIn.addEventListener('input', () => { c.historical = histIn.value; saveCast(); });
+    const humanRow = el('label', 'chk-row');
+    const humanIn = el('input'); humanIn.type = 'checkbox'; humanIn.checked = !!c.human;
+    humanRow.append(humanIn, el('span', '', 'Lo controllo io'));
+    humanIn.addEventListener('change', () => { c.human = humanIn.checked; paint(); saveCast(); updateCastLabel(); });
     const archIn = textInput(c.archetype, 60, 'es. il Complottista');
     const promptIn = el('textarea');
     promptIn.maxLength = 800;
@@ -851,11 +1054,12 @@ window.EventSource = class {
         const taken = S.cast.filter((_, j) => j !== i).map((x) => x.name.trim()).filter(Boolean);
         const r = await api('/characters/generate', {
           method: 'POST',
-          body: JSON.stringify({ brief: text, name: c.name.trim() || null, taken }),
+          body: JSON.stringify({ brief: text, name: c.name.trim() || null, taken, historical: S.set === 'historical' }),
         });
         c.name = c.name.trim() || r.name;
         c.archetype = r.archetype;
         c.prompt = r.prompt;
+        if (r.historical) { c.historical = r.historical; histIn.value = r.historical; }
         nameIn.value = c.name;
         archIn.value = c.archetype;
         promptIn.value = c.prompt;
@@ -874,7 +1078,9 @@ window.EventSource = class {
     });
 
     const body = el('div', 'char-body');
-    body.append(castField('Nome', nameIn), castField('Archetipo', archIn), castField('Personalità', promptIn), count, ai);
+    body.append(castField('Nome', nameIn));
+    if (S.set === 'historical') body.append(castField('Identità storica', histIn));
+    body.append(humanRow, castField('Archetipo', archIn), castField('Personalità', promptIn), count, ai);
     d.append(sum, body);
     paint();
     updCount();
@@ -891,7 +1097,7 @@ window.EventSource = class {
 
   function addCharacter() {
     if (S.cast.length >= MAX_CAST) return;
-    S.cast.push({ name: '', archetype: '', prompt: '', _open: true });
+    S.cast.push({ name: '', archetype: '', prompt: '', historical: '', human: false, _open: true });
     renderCast();
     refreshTraitors();
     updateCastLabel();
@@ -902,9 +1108,18 @@ window.EventSource = class {
 
   function resetCast() {
     if (!confirm('Ripristinare i personaggi predefiniti? Le tue modifiche andranno perse.')) return;
-    S.cast = S.defaults.map((c) => ({ ...c }));
+    S.cast = S.defaults.map((c) => ({ ...c, human: false }));
     saveCast();
     renderCast();
+    refreshTraitors();
+    updateCastLabel();
+  }
+
+  function switchSet(set) {
+    saveCast();
+    S.set = set;
+    S.defaults = S.defaultsBy[set];
+    S.cast = loadCast();
     refreshTraitors();
     updateCastLabel();
   }
@@ -932,7 +1147,10 @@ window.EventSource = class {
     try {
       S.health = await api('/health');
     } catch (_) { /* server non raggiungibile */ }
-    try { S.defaults = await api('/characters'); } catch (_) { S.defaults = []; }
+    try { S.defaultsBy.default = await api('/characters'); } catch (_) { /* ignore */ }
+    try { S.defaultsBy.historical = await api('/characters?set=historical'); } catch (_) { /* ignore */ }
+    S.defaults = S.defaultsBy.default;
+    $('#opt-historical').addEventListener('change', (e) => switchSet(e.target.checked ? 'historical' : 'default'));
     S.cast = loadCast();
     refreshTraitors();
     updateCastLabel();

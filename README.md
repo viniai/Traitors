@@ -39,6 +39,13 @@ Apri http://localhost:8000. Da telefono, usa l'IP del computer nella stessa rete
 
 **Memoria.** Il contesto non esplode: gli ultimi due giorni sono nel log completo, quelli più vecchi diventano un riepilogo (voti, eliminato, vittima).
 
+## Novità
+
+- **Missioni sabotabili.** Ogni missione ha una posta (250-1500 €). All'inizio i Traditori vivi decidono in segreto se sabotare: ogni sabotaggio toglie il 20-35% della posta alla squadra e lo mette nel **bottino dei Traditori** (visibile in Vista dio o a un tuo personaggio Traditore). Un po' di perdita casuale (0-20%) esiste sempre, così non sabotare resta la scelta prudente. Se i Traditori vincono si dividono montepremi + bottino.
+- **Scudi e immunità.** Una missione può mettere in palio uno **scudo** (segreto, annulla un assassinio notturno, una volta) o l'**immunità** (pubblica, non votabile quel giorno). Il vantaggio si assegna a un concorrente a caso solo se la squadra incassa almeno metà della posta: sabotare pesantemente lo fa saltare.
+- **Modalità storica.** Spunta «Modalità storica» nel menu di nuova partita: parte un cast di 10 personaggi storici (modificabile, con campo «Identità storica» e generazione assistita). Ogni personaggio mantiene la coscienza storica di sé e sa chi sono gli altri storici presenti, con rapporti, rivalità e rancori reali; non conosce nulla di ciò che avvenne dopo la propria morte.
+- **Controllo manuale.** Nell'editor dei personaggi spunta «Lo controllo io» su uno o più personaggi (almeno uno resta all'IA). Quando tocca a loro compare un pannello in basso per parlare, votare, scegliere la vittima, reclutare/accettare o sabotare. Il tuo ruolo e la chat dei Traditori ti arrivano come messaggi privati. Non attivare la Vista dio se vuoi giocare alla pari. La partita aspetta fino a 15 minuti per ogni tua mossa.
+
 ## Regole implementate
 
 - 10 giocatori, 2-4 Traditori (default 3), ruoli casuali.
@@ -53,9 +60,10 @@ Apri http://localhost:8000. Da telefono, usa l'IP del computer nella stessa rete
 | Metodo | Percorso | Descrizione |
 |---|---|---|
 | GET | `/api/health` | Dice se la chiave API del provider configurato è disponibile |
-| GET | `/api/characters` | Personaggi predefiniti |
+| GET | `/api/characters?set=historical` | Personaggi predefiniti (o storici) |
 | POST | `/api/characters/generate` | `{brief, name?, taken?}` → `{name, archetype, prompt, mock}` (generazione assistita) |
-| POST | `/api/games` | `{mock, traitors, rounds, delay, model, seed, characters?}` → `{id}` (`characters`: 6-14 elementi `{name, archetype, prompt}`) |
+| POST | `/api/games/{id}/turn` | `{turn, say?, vote?, target?, action?, accept?, sabotage?}`: risposta del giocatore umano |
+| POST | `/api/games` | `{mock, traitors, rounds, delay, model, seed, characters?, historical?, human?}` → `{id}` (`characters`: 6-14 elementi `{name, archetype, prompt}`) |
 | GET | `/api/games` | Elenco partite (salvate e in corso) |
 | GET | `/api/games/{id}/events` | Stream SSE degli eventi (riprende con `Last-Event-ID`) |
 | GET | `/api/games/{id}/transcript` | Tutti gli eventi della partita |

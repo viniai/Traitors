@@ -23,6 +23,18 @@ Regole:
 - Il personaggio deve funzionare sia se sarà Fedele sia se sarà Traditore: non citare ruoli, regole o montepremi.
 - Niente riferimenti a persone reali né a personaggi di opere protette."""
 
+SYSTEM_HISTORICAL = SYSTEM.replace(
+    '{"name": "...", "archetype": "...", "prompt": "..."}',
+    '{"name": "...", "archetype": "...", "historical": "...", "prompt": "..."}',
+).replace(
+    "- name: un nome proprio italiano, una sola parola, non presente nell'elenco dei nomi già usati.",
+    "- name: il nome con cui il personaggio storico è comunemente chiamato (breve, massimo 2 parole), non presente nell'elenco dei nomi già usati.\n"
+    "- historical: identità completa con titolo e date (es. \"Napoleone Bonaparte, imperatore dei Francesi (1769-1821)\").",
+).replace(
+    "- Niente riferimenti a persone reali né a personaggi di opere protette.",
+    "- Lo spunto indica un personaggio storico realmente esistito: usa carattere e mentalità fedeli alla storia.",
+)
+
 
 def _pick_name(taken: list[str], preferred: Optional[str] = None) -> str:
     used = {t.casefold() for t in taken}
@@ -67,7 +79,7 @@ def draft_character(brief: str, name_hint: Optional[str], taken: list[str]) -> d
 
 
 async def generate_character(
-    llm: Optional[BaseLLM], brief: str, name_hint: Optional[str], taken: list[str]
+    llm: Optional[BaseLLM], brief: str, name_hint: Optional[str], taken: list[str], historical: bool = False
 ) -> dict:
     if llm is None or isinstance(llm, MockLLM):
         return {**draft_character(brief, name_hint, taken), "mock": True}
@@ -75,15 +87,16 @@ async def generate_character(
     user = f"Spunto: {brief}\nNomi già usati: {', '.join(taken) or '(nessuno)'}\n"
     if name_hint:
         user += f"Il nome del personaggio deve essere: {name_hint}\n"
-    raw = await llm.complete(SYSTEM, user, kind="character", max_tokens=500)
+    raw = await llm.complete(SYSTEM_HISTORICAL if historical else SYSTEM, user, kind="character", max_tokens=500)
     data = parse_json(raw)
     prompt = str(data.get("prompt") or "").strip()
     if not prompt:
         raise LLMError("risposta non valida dal modello, riprova")
-    name = name_hint or _pick_name(taken, str(data.get("name") or ""))
+    name = name_hint or (str(data.get("name") or "").strip()[:20] if historical and data.get("name") else _pick_name(taken, str(data.get("name") or "")))
     return {
         "name": name,
         "archetype": str(data.get("archetype") or "").strip()[:60],
         "prompt": prompt[:800],
+        "historical": str(data.get("historical") or "").strip()[:160] if historical else "",
         "mock": False,
     }

@@ -1,4 +1,4 @@
-const CACHE = 'traitors-v2';
+const CACHE = 'traitors-v3';
 const SHELL = [
   '/',
   '/index.html',
