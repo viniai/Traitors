@@ -161,6 +161,8 @@ class MockLLM(BaseLLM):
                 {"thought": thought, "say": f"Stanotte colpiamo {pick}.", "target": pick, "action": action},
                 ensure_ascii=False,
             )
+        if kind == "sabotage":
+            return json.dumps({"thought": thought, "sabotage": self.rng.random() < 0.4}, ensure_ascii=False)
         if kind == "recruit":
             return json.dumps({"thought": thought, "accept": self.rng.random() < 0.6}, ensure_ascii=False)
         return "{}"
