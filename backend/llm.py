@@ -28,7 +28,7 @@ def has_llm_key() -> bool:
 
 
 DEFAULT_MODEL = os.getenv("TRAITORS_MODEL") or (
-    "openai/gpt-4o-mini" if configured_provider() == "openrouter" else "claude-haiku-5-5"
+    "openai/gpt-6-luna" if configured_provider() == "openrouter" else "claude-haiku-5-5"
 )
 
 
@@ -62,15 +62,26 @@ class ClaudeLLM(BaseLLM):
     async def complete(self, system, user, *, kind, options=None, max_tokens=400, player=""):
         async with self._sem:
             last: Exception | None = None
+            retry_max_tokens = max_tokens
             for attempt in range(3):
                 try:
                     resp = await self.client.messages.create(
                         model=self.model,
-                        max_tokens=max_tokens,
+                        max_tokens=retry_max_tokens,
                         system=system,
                         messages=[{"role": "user", "content": user}],
                     )
+                    if resp.stop_reason == "max_tokens":
+                        if attempt < 2:
+                            retry_max_tokens *= 2
+                            continue
+                        raise LLMError(
+                            f"La risposta di {self.model} è stata troncata anche dopo tre tentativi. "
+                            "Prova un modello con un limite di output maggiore."
+                        )
                     return "".join(b.text for b in resp.content if b.type == "text")
+                except LLMError:
+                    raise
                 except Exception as exc:  # rete, rate limit, ecc.
                     last = exc
                     await asyncio.sleep(1.5 * (attempt + 1))
@@ -94,20 +105,36 @@ class OpenRouterLLM(BaseLLM):
     async def complete(self, system, user, *, kind, options=None, max_tokens=400, player=""):
         async with self._sem:
             last: Exception | None = None
+            retry_max_tokens = max_tokens
             for attempt in range(3):
                 try:
                     resp = await self.client.chat.completions.create(
                         model=self.model,
-                        max_tokens=max_tokens,
+                        max_tokens=retry_max_tokens,
                         messages=[
                             {"role": "system", "content": system},
                             {"role": "user", "content": user},
                         ],
                     )
-                    content = resp.choices[0].message.content
-                    if content is None:
-                        raise LLMError("OpenRouter ha restituito una risposta vuota.")
+                    choice = resp.choices[0]
+                    content = choice.message.content
+                    if choice.finish_reason == "length":
+                        if attempt < 2:
+                            retry_max_tokens *= 2
+                            continue
+                        raise LLMError(
+                            f"La risposta di {self.model} è stata troncata anche dopo tre tentativi. "
+                            "Prova un modello con un limite di output maggiore."
+                        )
+                    if not isinstance(content, str) or not content.strip():
+                        reason = f", motivo: {choice.finish_reason}" if choice.finish_reason else ""
+                        raise LLMError(
+                            f"OpenRouter non ha restituito testo dal modello {self.model}{reason}. "
+                            "Verifica il modello selezionato o impostane uno compatibile con TRAITORS_MODEL."
+                        )
                     return content
+                except LLMError:
+                    raise
                 except Exception as exc:  # rete, rate limit, ecc.
                     last = exc
                     await asyncio.sleep(1.5 * (attempt + 1))
